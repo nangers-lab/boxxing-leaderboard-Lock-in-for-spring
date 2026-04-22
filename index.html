@@ -330,7 +330,7 @@
 
     <div class="meta">
       <span><span class="dot"></span><span id="last-updated">Refreshing…</span></span>
-      <span>Auto-refreshes every 5 minutes</span>
+      <span>Updated daily at 8am</span>
     </div>
 
   </div>
@@ -428,7 +428,40 @@
     }
 
     loadLeaderboard();
-    setInterval(loadLeaderboard, 5 * 60 * 1000); // refresh every 5 min
+    setInterval(loadLeaderboard, 60 * 60 * 1000); // refresh every hour
+
+    // ── Auto-scroll ────────────────────────────────────────────────────────────
+    // Slowly scrolls to the bottom, pauses, scrolls back to top, pauses, repeats.
+    let scrollDir = 1;
+    let scrolling = true;
+
+    function autoScroll() {
+      if (!scrolling) return;
+      const maxScroll = document.body.scrollHeight - window.innerHeight;
+      const step = 1.2; // px per frame
+      window.scrollBy(0, step * scrollDir);
+      const pos = window.scrollY;
+      if (pos >= maxScroll - 2) {
+        scrollDir = 0;
+        setTimeout(() => { scrollDir = -1; }, 3000); // pause 3s at bottom
+      } else if (pos <= 2 && scrollDir === -1) {
+        scrollDir = 0;
+        setTimeout(() => { scrollDir = 1; }, 4000); // pause 4s at top
+      }
+      requestAnimationFrame(autoScroll);
+    }
+
+    // Start scrolling 2s after page load, pause on user interaction
+    setTimeout(() => {
+      requestAnimationFrame(autoScroll);
+      ['mousedown','touchstart','wheel','keydown'].forEach(e =>
+        window.addEventListener(e, () => {
+          scrolling = false;
+          clearTimeout(window._resumeScroll);
+          window._resumeScroll = setTimeout(() => { scrolling = true; autoScroll(); }, 8000);
+        }, { passive: true })
+      );
+    }, 2000);
   </script>
 
 </body>

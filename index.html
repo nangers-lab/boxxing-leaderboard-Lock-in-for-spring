@@ -29,13 +29,14 @@
     .topbar {
       position: relative;
       border-bottom: 2px solid var(--green);
-      padding: 28px 24px 22px;
+      padding: 20px 16px 16px;
       display: flex;
       flex-direction: column;
       align-items: center;
-      gap: 10px;
+      gap: 8px;
       overflow: hidden;
     }
+    @media (min-width: 600px) { .topbar { padding: 28px 24px 22px; gap: 10px; } }
     .topbar-bg {
       position: absolute;
       inset: 0;
@@ -108,8 +109,9 @@
     .container {
       max-width: 860px;
       margin: 0 auto;
-      padding: 32px 16px 60px;
+      padding: 24px 12px 60px;
     }
+    @media (min-width: 600px) { .container { padding: 32px 16px 60px; } }
 
     .section-title {
       font-family: 'Bebas Neue', sans-serif;
@@ -133,11 +135,17 @@
       background: var(--card);
       border: 1px solid var(--border);
       border-radius: 12px;
-      overflow: hidden;
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
     }
     table {
       width: 100%;
+      min-width: 420px;
       border-collapse: collapse;
+    }
+    /* hide ×1 / ×3 breakdown on very small screens */
+    @media (max-width: 480px) {
+      .col-detail { display: none; }
     }
     thead tr {
       background: #1e1e1e;
@@ -237,7 +245,10 @@
       grid-template-columns: 1fr 1fr;
       gap: 12px;
     }
-    @media (max-width: 520px) { .rules { grid-template-columns: 1fr; } }
+    @media (max-width: 520px) {
+      .rules { grid-template-columns: 1fr; }
+      .rule-item[style*="span 2"] { grid-column: span 1 !important; }
+    }
     .rule-item {
       display: flex;
       gap: 12px;
@@ -260,6 +271,71 @@
       line-height: 1.5;
     }
     .rule-text strong { color: var(--white); }
+
+    /* ── Controls bar ─────────────────────────────────────────── */
+    .controls-bar {
+      background: #111;
+      border-bottom: 1px solid var(--border);
+      padding: 10px 16px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 14px;
+      flex-wrap: wrap;
+    }
+    .search-input {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--white);
+      font-family: 'Inter', sans-serif;
+      font-size: 0.82rem;
+      padding: 7px 14px;
+      width: min(220px, 55vw);
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    .search-input::placeholder { color: var(--muted); }
+    .search-input:focus { border-color: var(--green); }
+
+    .toggle-wrap {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      cursor: pointer;
+      user-select: none;
+    }
+    .toggle-wrap .toggle-label {
+      font-size: 0.72rem;
+      color: var(--muted);
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+    .toggle {
+      position: relative;
+      width: 40px;
+      height: 22px;
+      flex-shrink: 0;
+    }
+    .toggle input { opacity: 0; width: 0; height: 0; }
+    .toggle-track {
+      position: absolute;
+      inset: 0;
+      border-radius: 22px;
+      background: var(--border);
+      transition: background 0.2s;
+    }
+    .toggle input:checked + .toggle-track { background: var(--green); }
+    .toggle-thumb {
+      position: absolute;
+      top: 3px; left: 3px;
+      width: 16px; height: 16px;
+      border-radius: 50%;
+      background: #fff;
+      transition: transform 0.2s;
+    }
+    .toggle input:checked ~ .toggle-thumb { transform: translateX(18px); }
 
     /* ── Loading / error ───────────────────────────────────── */
     .state-msg {
@@ -300,6 +376,19 @@
     <div class="countdown-unit"><div class="num" id="cd-mins">--</div><div class="label">Minutes</div></div>
     <div class="countdown-sep">:</div>
     <div class="countdown-unit"><div class="num" id="cd-secs">--</div><div class="label">Seconds</div></div>
+  </div>
+
+  <!-- Controls -->
+  <div class="controls-bar">
+    <input class="search-input" id="search-input" type="text" placeholder="🔍  Search participant…" />
+    <label class="toggle-wrap" for="scroll-toggle">
+      <span class="toggle-label">Auto Scroll</span>
+      <div class="toggle">
+        <input type="checkbox" id="scroll-toggle" checked />
+        <div class="toggle-track"></div>
+        <div class="toggle-thumb"></div>
+      </div>
+    </label>
   </div>
 
   <!-- Leaderboard -->
@@ -404,8 +493,8 @@
         return `<tr class="${isGold ? 'gold-row' : ''}">
           <td>${rankBadge(r.rank)}</td>
           <td class="name-col">${r.name}</td>
-          <td>${r.one}</td>
-          <td>${r.three}</td>
+          <td class="col-detail">${r.one}</td>
+          <td class="col-detail">${r.three}</td>
           <td class="tickets-col">${r.tickets} 🎟</td>
         </tr>`;
       }).join('');
@@ -416,8 +505,8 @@
             <tr>
               <th>Rank</th>
               <th class="name-col">Participant</th>
-              <th>×1 Classes</th>
-              <th>×3 Classes</th>
+              <th class="col-detail">×1 Classes</th>
+              <th class="col-detail">×3 Classes</th>
               <th>Tickets</th>
             </tr>
           </thead>
@@ -430,26 +519,35 @@
     loadLeaderboard();
     setInterval(loadLeaderboard, 60 * 60 * 1000); // refresh every hour
 
+    // ── Search ─────────────────────────────────────────────────────────────────
+    document.getElementById('search-input').addEventListener('input', function() {
+      const q = this.value.trim().toLowerCase();
+      document.querySelectorAll('#table-wrap tbody tr').forEach(row => {
+        const name = row.querySelector('.name-col')?.textContent?.toLowerCase() ?? '';
+        row.style.display = (!q || name.includes(q)) ? '' : 'none';
+      });
+    });
+
     // ── Auto-scroll ────────────────────────────────────────────────────────────
-    let paused = false;
-    let rafId  = null;
+    let paused     = false;
+    let scrollOff  = false;
+    let rafId      = null;
 
     function startScroll() {
       if (rafId) cancelAnimationFrame(rafId);
 
       function step() {
-        if (!paused) {
+        if (!paused && !scrollOff) {
           window.scrollBy(0, 2.5);
           const maxScroll = document.body.scrollHeight - window.innerHeight;
           if (window.scrollY >= maxScroll - 2) {
-            // Reached bottom — pause 2s then jump to top and continue
             paused = true;
             setTimeout(() => {
               window.scrollTo({ top: 0 });
               setTimeout(() => {
                 paused = false;
                 rafId = requestAnimationFrame(step);
-              }, 1500); // pause at top before scrolling again
+              }, 1500);
             }, 2000);
             return;
           }
@@ -460,12 +558,19 @@
       rafId = requestAnimationFrame(step);
     }
 
+    // Toggle switch
+    document.getElementById('scroll-toggle').addEventListener('change', function() {
+      scrollOff = !this.checked;
+      if (!scrollOff) { paused = false; }
+    });
+
     // Start 2s after load
     setTimeout(startScroll, 2000);
 
-    // Pause on interaction, resume 8s later
+    // Pause on interaction, resume 8s later (only if scroll is enabled)
     ['mousedown', 'touchstart', 'wheel', 'keydown'].forEach(evt =>
       window.addEventListener(evt, () => {
+        if (scrollOff) return;
         paused = true;
         clearTimeout(window._resumeScroll);
         window._resumeScroll = setTimeout(() => { paused = false; }, 8000);

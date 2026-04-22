@@ -431,37 +431,46 @@
     setInterval(loadLeaderboard, 60 * 60 * 1000); // refresh every hour
 
     // ── Auto-scroll ────────────────────────────────────────────────────────────
-    // Slowly scrolls to the bottom, pauses, scrolls back to top, pauses, repeats.
-    let scrollDir = 1;
-    let scrolling = true;
+    let paused = false;
+    let rafId  = null;
 
-    function autoScroll() {
-      if (!scrolling) return;
-      const maxScroll = document.body.scrollHeight - window.innerHeight;
-      const step = 1.2; // px per frame
-      window.scrollBy(0, step * scrollDir);
-      const pos = window.scrollY;
-      if (pos >= maxScroll - 2) {
-        scrollDir = 0;
-        setTimeout(() => { scrollDir = -1; }, 3000); // pause 3s at bottom
-      } else if (pos <= 2 && scrollDir === -1) {
-        scrollDir = 0;
-        setTimeout(() => { scrollDir = 1; }, 4000); // pause 4s at top
+    function startScroll() {
+      if (rafId) cancelAnimationFrame(rafId);
+
+      function step() {
+        if (!paused) {
+          window.scrollBy(0, 1.2);
+          const maxScroll = document.body.scrollHeight - window.innerHeight;
+          if (window.scrollY >= maxScroll - 2) {
+            // Reached bottom — pause 2s then jump to top and continue
+            paused = true;
+            setTimeout(() => {
+              window.scrollTo({ top: 0 });
+              setTimeout(() => {
+                paused = false;
+                rafId = requestAnimationFrame(step);
+              }, 1500); // pause at top before scrolling again
+            }, 2000);
+            return;
+          }
+        }
+        rafId = requestAnimationFrame(step);
       }
-      requestAnimationFrame(autoScroll);
+
+      rafId = requestAnimationFrame(step);
     }
 
-    // Start scrolling 2s after page load, pause on user interaction
-    setTimeout(() => {
-      requestAnimationFrame(autoScroll);
-      ['mousedown','touchstart','wheel','keydown'].forEach(e =>
-        window.addEventListener(e, () => {
-          scrolling = false;
-          clearTimeout(window._resumeScroll);
-          window._resumeScroll = setTimeout(() => { scrolling = true; autoScroll(); }, 8000);
-        }, { passive: true })
-      );
-    }, 2000);
+    // Start 2s after load
+    setTimeout(startScroll, 2000);
+
+    // Pause on interaction, resume 8s later
+    ['mousedown', 'touchstart', 'wheel', 'keydown'].forEach(evt =>
+      window.addEventListener(evt, () => {
+        paused = true;
+        clearTimeout(window._resumeScroll);
+        window._resumeScroll = setTimeout(() => { paused = false; }, 8000);
+      }, { passive: true })
+    );
   </script>
 
 </body>

@@ -369,9 +369,10 @@
         // Strip the JSONP wrapper google adds
         const json = JSON.parse(text.replace(/^[^(]+\(/, '').replace(/\);?\s*$/, ''));
         const rows = json.table.rows;
+        const cols = json.table.cols;
 
-        // Rows 0-2 = title / subtitle / empty, row 3 = header → data starts at row 4
-        const dataRows = rows.slice(4).map(r => ({
+        // gviz merges the title/header rows into col labels — data starts at rows[0]
+        const dataRows = rows.map(r => ({
           rank:    r.c[0]?.v ?? '',
           name:    r.c[1]?.v ?? '',
           one:     r.c[2]?.v ?? 0,
@@ -379,9 +380,9 @@
           tickets: r.c[4]?.v ?? 0,
         })).filter(r => r.name);
 
-        // Updated timestamp from row 1
-        const updatedRaw = rows[1]?.c[0]?.v ?? '';
-        const updatedStr = updatedRaw.replace('Last updated: ', '');
+        // Updated timestamp is embedded in the first col label
+        const labelText  = cols[0]?.label ?? '';
+        const updatedStr = labelText.match(/Last updated: ([^R]+)/)?.[1]?.trim() ?? '';
 
         renderTable(dataRows, updatedStr);
       } catch (e) {

@@ -27,21 +27,33 @@
 
     /* ── Top bar ───────────────────────────────────────────── */
     .topbar {
-      background: #111;
+      position: relative;
       border-bottom: 2px solid var(--green);
-      padding: 14px 24px;
+      padding: 28px 24px 22px;
       display: flex;
+      flex-direction: column;
       align-items: center;
-      justify-content: space-between;
-      gap: 16px;
+      gap: 10px;
+      overflow: hidden;
+    }
+    .topbar-bg {
+      position: absolute;
+      inset: 0;
+      background-image: url('header-bg.jpg');
+      background-size: cover;
+      background-position: center 40%;
+      filter: brightness(0.28);
     }
     .topbar img.logo {
-      height: 36px;
+      position: relative;
+      height: 42px;
       width: auto;
+      z-index: 1;
     }
     .topbar-title {
+      position: relative;
+      z-index: 1;
       text-align: center;
-      flex: 1;
     }
     .topbar-title h1 {
       font-family: 'Bebas Neue', sans-serif;
@@ -271,12 +283,12 @@
 
   <!-- Top bar -->
   <div class="topbar">
+    <div class="topbar-bg"></div>
     <img class="logo" src="logo.png" alt="Boxxing Studio" />
     <div class="topbar-title">
       <h1>SPRING <span>LOCK-IN</span> CHALLENGE</h1>
       <p class="dates">April 20 – May 18, 2026</p>
     </div>
-    <img class="logo" src="logo.png" alt="" aria-hidden="true" style="opacity:0;pointer-events:none" />
   </div>
 
   <!-- Countdown -->
@@ -293,19 +305,8 @@
   <!-- Leaderboard -->
   <div class="container">
 
-    <p class="section-title">🏆 Leaderboard</p>
-
-    <div class="table-wrap" id="table-wrap">
-      <div class="state-msg"><div class="spinner"></div>Loading standings…</div>
-    </div>
-
-    <div class="meta">
-      <span><span class="dot"></span><span id="last-updated">Refreshing…</span></span>
-      <span>Auto-refreshes every 5 minutes</span>
-    </div>
-
     <!-- Rules -->
-    <p class="section-title" style="margin-top:40px">🎟 How Tickets Work</p>
+    <p class="section-title">🎟 How Tickets Work</p>
     <div class="rules">
       <div class="rule-item">
         <div class="rule-badge">×1</div>
@@ -319,6 +320,17 @@
         <div class="rule-badge" style="color:var(--gold)">WIN</div>
         <div class="rule-text"><strong>Monthly memberships, private training, merch, energy drinks, and more!</strong><br/>More classes = more entries = more chances to win.</div>
       </div>
+    </div>
+
+    <p class="section-title" style="margin-top:40px">🏆 Leaderboard</p>
+
+    <div class="table-wrap" id="table-wrap">
+      <div class="state-msg"><div class="spinner"></div>Loading standings…</div>
+    </div>
+
+    <div class="meta">
+      <span><span class="dot"></span><span id="last-updated">Refreshing…</span></span>
+      <span>Auto-refreshes every 5 minutes</span>
     </div>
 
   </div>

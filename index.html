@@ -405,6 +405,14 @@
         <div class="rule-badge">×3</div>
         <div class="rule-text"><strong>H.I.I.T. / TECHNICAL</strong><br/>3 raffle tickets per class</div>
       </div>
+      <div class="rule-item">
+        <div class="rule-badge" style="color:var(--gold)">+5</div>
+        <div class="rule-text"><strong>Week 2 Morning Bonus (Apr 27–May 3)</strong><br/>≥ 2 morning classes (6:45 / 7:15 AM) = +5 bonus tickets</div>
+      </div>
+      <div class="rule-item">
+        <div class="rule-badge" style="color:var(--gold)">+5</div>
+        <div class="rule-text"><strong>Week 2 Lunch Bonus (Apr 27–May 3)</strong><br/>≥ 2 lunch classes (12:00 / 12:15 PM) = +5 bonus tickets</div>
+      </div>
       <div class="rule-item" style="grid-column: span 2">
         <div class="rule-badge" style="color:var(--gold)">WIN</div>
         <div class="rule-text"><strong>Monthly memberships, private training, merch, energy drinks, and more!</strong><br/>More classes = more entries = more chances to win.</div>
@@ -461,12 +469,14 @@
         const cols = json.table.cols;
 
         // gviz merges the title/header rows into col labels — data starts at rows[0]
+        // Sheet column order: Rank, Name, 1-Ticket, 3-Ticket, Bonus Tickets, Total Raffle Tickets
         const dataRows = rows.map(r => ({
           rank:    r.c[0]?.v ?? '',
           name:    r.c[1]?.v ?? '',
           one:     r.c[2]?.v ?? 0,
           three:   r.c[3]?.v ?? 0,
-          tickets: r.c[4]?.v ?? 0,
+          bonus:   r.c[4]?.v ?? 0,
+          tickets: r.c[5]?.v ?? 0,
         })).filter(r => r.name);
 
         // Updated timestamp is embedded in the first col label
@@ -490,11 +500,13 @@
     function renderTable(data, updatedStr) {
       const tbody = data.map((r, i) => {
         const isGold = (i + 1) <= 15;
+        const bonusCell = r.bonus > 0 ? `<span style="color:var(--gold);font-weight:700">+${r.bonus} 🌟</span>` : `<span style="color:var(--muted)">—</span>`;
         return `<tr class="${isGold ? 'gold-row' : ''}">
           <td>${rankBadge(r.rank)}</td>
           <td class="name-col">${r.name}</td>
           <td class="col-detail">${r.one}</td>
           <td class="col-detail">${r.three}</td>
+          <td class="col-detail">${bonusCell}</td>
           <td class="tickets-col">${r.tickets} 🎟</td>
         </tr>`;
       }).join('');
@@ -507,6 +519,7 @@
               <th class="name-col">Participant</th>
               <th class="col-detail">×1 Classes</th>
               <th class="col-detail">×3 Classes</th>
+              <th class="col-detail">Bonus</th>
               <th>Tickets</th>
             </tr>
           </thead>

@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Spring Lock-In Challenge — Leaderboard</title>
-  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;600;700&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;600;700;900&display=swap" rel="stylesheet" />
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -317,6 +317,41 @@
     }
     .toggle input:checked ~ .toggle-thumb { transform: translateX(18px); }
 
+    /* ── Spin button (in controls bar) ─────────────────────── */
+    .spin-cta {
+      position: relative;
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 0.95rem;
+      letter-spacing: 3px;
+      color: #000;
+      background: linear-gradient(135deg, var(--green) 0%, #6EFF40 50%, var(--gold) 100%);
+      border: none;
+      border-radius: 999px;
+      padding: 9px 22px 8px;
+      cursor: pointer;
+      box-shadow: 0 0 18px rgba(57, 255, 20, 0.55), 0 0 38px rgba(255, 215, 0, 0.25);
+      transition: transform 0.15s ease, box-shadow 0.2s ease;
+      overflow: hidden;
+    }
+    .spin-cta:hover {
+      transform: translateY(-1px) scale(1.04);
+      box-shadow: 0 0 26px rgba(57, 255, 20, 0.8), 0 0 50px rgba(255, 215, 0, 0.4);
+    }
+    .spin-cta:active { transform: translateY(0) scale(0.98); }
+    .spin-cta::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(120deg, transparent 30%, rgba(255,255,255,0.45) 50%, transparent 70%);
+      transform: translateX(-100%);
+      animation: shine 2.6s infinite;
+    }
+    @keyframes shine {
+      0% { transform: translateX(-100%); }
+      55% { transform: translateX(120%); }
+      100% { transform: translateX(120%); }
+    }
+
     /* ── Loading / error ───────────────────────────────────── */
     .state-msg {
       text-align: center;
@@ -333,6 +368,374 @@
       margin: 0 auto 16px;
     }
     @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ════════════════════════════════════════════════════════
+       SPIN-THE-WHEEL MODAL
+       ════════════════════════════════════════════════════════ */
+    .wheel-modal {
+      position: fixed;
+      inset: 0;
+      z-index: 9999;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      background:
+        radial-gradient(ellipse at 30% 20%, rgba(57, 255, 20, 0.18) 0%, transparent 55%),
+        radial-gradient(ellipse at 75% 80%, rgba(255, 215, 0, 0.12) 0%, transparent 55%),
+        rgba(5, 5, 5, 0.96);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      animation: modalFade 0.35s ease;
+    }
+    .wheel-modal.open { display: flex; }
+    @keyframes modalFade {
+      from { opacity: 0; }
+      to   { opacity: 1; }
+    }
+
+    .wheel-close {
+      position: absolute;
+      top: 18px;
+      right: 22px;
+      background: rgba(255,255,255,0.06);
+      border: 1px solid var(--border);
+      color: var(--white);
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      font-size: 1.2rem;
+      cursor: pointer;
+      transition: all 0.2s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .wheel-close:hover {
+      background: rgba(255, 80, 80, 0.18);
+      border-color: rgba(255, 80, 80, 0.5);
+      transform: rotate(90deg);
+    }
+
+    .wheel-stage {
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 22px;
+      width: 100%;
+      max-width: 720px;
+    }
+
+    .wheel-headline {
+      text-align: center;
+    }
+    .wheel-headline h2 {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: clamp(1.6rem, 4.5vw, 2.8rem);
+      letter-spacing: 5px;
+      line-height: 1;
+      background: linear-gradient(90deg, var(--green), #fff, var(--gold));
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+      text-shadow: 0 0 32px rgba(57, 255, 20, 0.35);
+    }
+    .wheel-headline p {
+      margin-top: 8px;
+      font-size: 0.75rem;
+      letter-spacing: 3px;
+      color: var(--muted);
+      text-transform: uppercase;
+    }
+
+    .wheel-board {
+      position: relative;
+      width: min(540px, 88vw);
+      aspect-ratio: 1 / 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    /* Outer animated neon ring */
+    .wheel-board::before {
+      content: '';
+      position: absolute;
+      inset: -10px;
+      border-radius: 50%;
+      background: conic-gradient(
+        from 0deg,
+        rgba(57,255,20,0.0),
+        rgba(57,255,20,0.9),
+        rgba(255,215,0,0.9),
+        rgba(255, 64, 200, 0.7),
+        rgba(57,255,20,0.9),
+        rgba(57,255,20,0.0)
+      );
+      filter: blur(14px);
+      opacity: 0.85;
+      animation: ringRotate 8s linear infinite;
+      pointer-events: none;
+    }
+    /* Inner solid ring */
+    .wheel-board::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      border-radius: 50%;
+      box-shadow:
+        0 0 0 2px rgba(255,255,255,0.06),
+        0 0 60px rgba(57,255,20,0.25) inset,
+        0 0 120px rgba(255,215,0,0.12) inset;
+      pointer-events: none;
+    }
+    @keyframes ringRotate {
+      to { transform: rotate(360deg); }
+    }
+
+    .wheel-canvas-wrap {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      border-radius: 50%;
+      overflow: hidden;
+      background: radial-gradient(circle at 50% 50%, #1a1a1a 0%, #050505 80%);
+      box-shadow:
+        0 30px 80px rgba(0,0,0,0.6),
+        0 0 50px rgba(57,255,20,0.25),
+        0 0 100px rgba(255,215,0,0.15);
+    }
+
+    canvas.wheel {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      transition: transform 5.5s cubic-bezier(0.16, 0.84, 0.21, 1);
+      will-change: transform;
+    }
+
+    /* Center hub */
+    .wheel-hub {
+      position: absolute;
+      top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      width: 17%;
+      aspect-ratio: 1/1;
+      border-radius: 50%;
+      background: radial-gradient(circle at 35% 30%, #fff, #FFD700 40%, #B8860B 100%);
+      border: 3px solid #000;
+      box-shadow:
+        0 0 0 4px var(--green),
+        0 6px 22px rgba(0,0,0,0.7),
+        0 0 30px rgba(255,215,0,0.6);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 4;
+      pointer-events: none;
+    }
+    .wheel-hub::before {
+      content: 'B';
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: clamp(1rem, 3.5vw, 1.8rem);
+      color: #000;
+      text-shadow: 0 1px 0 rgba(255,255,255,0.5);
+    }
+
+    /* Pointer at top (12 o'clock) */
+    .wheel-pointer {
+      position: absolute;
+      top: -14px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 50px;
+      height: 70px;
+      z-index: 5;
+      filter: drop-shadow(0 6px 12px rgba(0,0,0,0.6)) drop-shadow(0 0 14px rgba(57,255,20,0.65));
+    }
+    .wheel-pointer svg { width: 100%; height: 100%; display: block; }
+
+    /* Sparkle dots around the rim */
+    .wheel-sparkles {
+      position: absolute;
+      inset: -22px;
+      pointer-events: none;
+      z-index: 6;
+    }
+    .wheel-sparkles span {
+      position: absolute;
+      width: 4px; height: 4px;
+      border-radius: 50%;
+      background: #fff;
+      box-shadow: 0 0 10px #fff, 0 0 18px var(--green);
+      opacity: 0;
+      animation: sparkle 2.6s ease-in-out infinite;
+    }
+    @keyframes sparkle {
+      0%, 100% { opacity: 0; transform: scale(0.4); }
+      50%      { opacity: 1; transform: scale(1.2); }
+    }
+
+    /* Action row */
+    .wheel-actions {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      justify-content: center;
+      align-items: center;
+    }
+    .wheel-btn {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 1.05rem;
+      letter-spacing: 4px;
+      padding: 13px 30px 11px;
+      border-radius: 999px;
+      border: none;
+      cursor: pointer;
+      transition: transform 0.15s, box-shadow 0.2s, background 0.2s;
+    }
+    .wheel-btn-primary {
+      background: linear-gradient(135deg, var(--green), var(--gold));
+      color: #000;
+      box-shadow: 0 0 22px rgba(57,255,20,0.65), 0 0 44px rgba(255,215,0,0.35);
+    }
+    .wheel-btn-primary:hover {
+      transform: translateY(-2px) scale(1.05);
+      box-shadow: 0 0 30px rgba(57,255,20,0.95), 0 0 60px rgba(255,215,0,0.5);
+    }
+    .wheel-btn-primary:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      transform: none;
+      filter: grayscale(0.4);
+    }
+    .wheel-btn-ghost {
+      background: rgba(255,255,255,0.06);
+      color: var(--white);
+      border: 1px solid var(--border);
+    }
+    .wheel-btn-ghost:hover {
+      background: rgba(255,255,255,0.12);
+      border-color: var(--green);
+      color: var(--green);
+    }
+
+    /* Stats row */
+    .wheel-stats {
+      display: flex;
+      gap: 18px;
+      font-size: 0.72rem;
+      letter-spacing: 2px;
+      color: var(--muted);
+      text-transform: uppercase;
+      text-align: center;
+    }
+    .wheel-stats b {
+      display: block;
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 1.5rem;
+      letter-spacing: 1px;
+      color: var(--green);
+      margin-top: 2px;
+    }
+    .wheel-stats .stat-gold b { color: var(--gold); }
+
+    /* Winner overlay */
+    .winner-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 10000;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      background: radial-gradient(ellipse at center, rgba(255,215,0,0.18) 0%, rgba(0,0,0,0.85) 60%);
+      backdrop-filter: blur(8px);
+      animation: modalFade 0.4s ease;
+    }
+    .winner-overlay.open { display: flex; }
+
+    .winner-card {
+      position: relative;
+      max-width: 480px;
+      width: 100%;
+      background: linear-gradient(160deg, #1a1a1a 0%, #0a0a0a 100%);
+      border: 2px solid var(--gold);
+      border-radius: 20px;
+      padding: 38px 28px 28px;
+      text-align: center;
+      box-shadow:
+        0 0 0 6px rgba(255,215,0,0.08),
+        0 0 60px rgba(255,215,0,0.45),
+        0 30px 80px rgba(0,0,0,0.7);
+      animation: winnerPop 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+    @keyframes winnerPop {
+      from { transform: scale(0.5) rotate(-6deg); opacity: 0; }
+      to   { transform: scale(1) rotate(0); opacity: 1; }
+    }
+    .winner-card .crown {
+      font-size: 3.4rem;
+      filter: drop-shadow(0 4px 14px rgba(255,215,0,0.6));
+      animation: bob 2.2s ease-in-out infinite;
+    }
+    @keyframes bob {
+      0%,100% { transform: translateY(0); }
+      50%     { transform: translateY(-6px); }
+    }
+    .winner-card .label {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 1rem;
+      letter-spacing: 5px;
+      color: var(--gold);
+      margin: 10px 0 6px;
+    }
+    .winner-card .winner-name {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: clamp(2rem, 7vw, 3.4rem);
+      letter-spacing: 2px;
+      line-height: 1;
+      background: linear-gradient(90deg, #fff, var(--gold) 50%, #fff);
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+      margin: 6px 0 14px;
+      word-break: break-word;
+    }
+    .winner-card .tickets-stat {
+      font-size: 0.85rem;
+      color: var(--muted);
+      letter-spacing: 1.5px;
+    }
+    .winner-card .tickets-stat strong {
+      color: var(--gold);
+      font-weight: 700;
+    }
+    .winner-actions {
+      margin-top: 24px;
+      display: flex;
+      gap: 10px;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+
+    /* Confetti */
+    .confetti-canvas {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 10001;
+    }
+
+    /* Empty state in modal */
+    .wheel-empty {
+      color: var(--muted);
+      text-align: center;
+      padding: 80px 20px;
+      font-size: 0.9rem;
+    }
   </style>
 </head>
 <body>
@@ -365,6 +768,7 @@
         <div class="toggle-thumb"></div>
       </div>
     </label>
+    <button class="spin-cta" id="open-wheel-btn" type="button">🎡 Spin the Wheel</button>
   </div>
 
   <!-- Leaderboard -->
@@ -408,9 +812,70 @@
 
   </div>
 
+  <!-- ═════════════ SPIN-THE-WHEEL MODAL ═════════════ -->
+  <div class="wheel-modal" id="wheel-modal" role="dialog" aria-modal="true" aria-labelledby="wheel-title">
+    <button class="wheel-close" id="wheel-close" aria-label="Close">✕</button>
+
+    <div class="wheel-stage">
+      <div class="wheel-headline">
+        <h2 id="wheel-title">SPIN TO WIN</h2>
+        <p>weighted by tickets · randomized order</p>
+      </div>
+
+      <div class="wheel-board">
+        <div class="wheel-canvas-wrap">
+          <canvas class="wheel" id="wheel-canvas" width="1100" height="1100"></canvas>
+        </div>
+        <div class="wheel-hub"></div>
+        <div class="wheel-pointer" aria-hidden="true">
+          <svg viewBox="0 0 50 70">
+            <defs>
+              <linearGradient id="pgrad" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stop-color="#39FF14"/>
+                <stop offset="100%" stop-color="#FFD700"/>
+              </linearGradient>
+            </defs>
+            <path d="M25 68 L4 18 Q4 4 25 4 Q46 4 46 18 Z" fill="url(#pgrad)" stroke="#000" stroke-width="2"/>
+            <circle cx="25" cy="20" r="5" fill="#000"/>
+          </svg>
+        </div>
+        <div class="wheel-sparkles" id="wheel-sparkles"></div>
+      </div>
+
+      <div class="wheel-stats">
+        <div><span>Participants</span><b id="stat-people">—</b></div>
+        <div class="stat-gold"><span>Total Tickets</span><b id="stat-tickets">—</b></div>
+      </div>
+
+      <div class="wheel-actions">
+        <button class="wheel-btn wheel-btn-primary" id="spin-btn">SPIN</button>
+        <button class="wheel-btn wheel-btn-ghost" id="reshuffle-btn">↻ Reshuffle</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═════════════ WINNER OVERLAY ═════════════ -->
+  <div class="winner-overlay" id="winner-overlay">
+    <div class="winner-card">
+      <div class="crown">👑</div>
+      <div class="label">WINNER</div>
+      <div class="winner-name" id="winner-name">—</div>
+      <div class="tickets-stat" id="winner-stats">—</div>
+      <div class="winner-actions">
+        <button class="wheel-btn wheel-btn-primary" id="spin-again-btn">SPIN AGAIN</button>
+        <button class="wheel-btn wheel-btn-ghost" id="close-winner-btn">CLOSE</button>
+      </div>
+    </div>
+  </div>
+
+  <canvas class="confetti-canvas" id="confetti-canvas"></canvas>
+
   <script>
     const SHEET_ID  = '1gJooq7O7HFUg-k3Ux9q1StVpv8e3aVuv7IJjT2LY0V0';
     const TAB_NAME  = 'Spring Lock-In Leaderboard';
+
+    // Shared cache of participant rows so the wheel can use the same dataset
+    let LEADERBOARD_DATA = [];
 
     async function loadLeaderboard() {
       const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(TAB_NAME)}`;
@@ -429,6 +894,8 @@
           bonus:   r.c[4]?.v ?? 0,
           tickets: r.c[5]?.v ?? 0,
         })).filter(r => r.name);
+
+        LEADERBOARD_DATA = dataRows;
 
         const labelText  = cols[0]?.label ?? '';
         const updatedStr = labelText.match(/Last updated: ([^R]+)/)?.[1]?.trim() ?? '';
@@ -537,6 +1004,367 @@
         window._resumeScroll = setTimeout(() => { paused = false; }, 8000);
       }, { passive: true })
     );
+
+    /* ═══════════════════════════════════════════════════════════
+       SPIN-THE-WHEEL LOGIC
+       ═══════════════════════════════════════════════════════════ */
+
+    const WHEEL = {
+      canvas: document.getElementById('wheel-canvas'),
+      modal:  document.getElementById('wheel-modal'),
+      slices: [],        // [{name, tickets, startAngle, endAngle, color}]
+      rotation: 0,       // cumulative degrees applied to canvas
+      spinning: false,
+    };
+
+    // Vibrant palette — cycles through these for slice fills
+    const PALETTE = [
+      '#39FF14', '#FFD700', '#FF3DAA', '#00E5FF', '#FF6F3C',
+      '#9B5DE5', '#F94144', '#43AA8B', '#F8961E', '#06D6A0',
+      '#FFB400', '#EF476F', '#118AB2', '#B5179E', '#7CFF6B',
+    ];
+
+    function fisherYates(arr) {
+      const a = arr.slice();
+      for (let i = a.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [a[i], a[j]] = [a[j], a[i]];
+      }
+      return a;
+    }
+
+    // Build wheel slices proportional to tickets, with random order
+    function buildSlices() {
+      const eligible = LEADERBOARD_DATA
+        .filter(r => Number(r.tickets) > 0)
+        .map(r => ({ name: String(r.name), tickets: Number(r.tickets) || 0 }));
+
+      const shuffled = fisherYates(eligible);
+      const total = shuffled.reduce((s, r) => s + r.tickets, 0);
+
+      let acc = 0;
+      WHEEL.slices = shuffled.map((r, i) => {
+        const frac  = r.tickets / total;
+        const start = acc * 360;
+        acc += frac;
+        const end = acc * 360;
+        return {
+          name:    r.name,
+          tickets: r.tickets,
+          startAngle: start,
+          endAngle:   end,
+          color: PALETTE[i % PALETTE.length],
+        };
+      });
+
+      document.getElementById('stat-people').textContent  = shuffled.length;
+      document.getElementById('stat-tickets').textContent = total;
+    }
+
+    function drawWheel() {
+      const canvas = WHEEL.canvas;
+      const ctx = canvas.getContext('2d');
+      const W = canvas.width;
+      const H = canvas.height;
+      const cx = W / 2;
+      const cy = H / 2;
+      const r  = Math.min(W, H) / 2 - 8;
+
+      ctx.clearRect(0, 0, W, H);
+
+      // Outer glow ring (drawn into canvas so it rotates with the wheel — subtle)
+      const ringGrad = ctx.createRadialGradient(cx, cy, r * 0.92, cx, cy, r);
+      ringGrad.addColorStop(0, 'rgba(0,0,0,0)');
+      ringGrad.addColorStop(1, 'rgba(255,255,255,0.06)');
+      ctx.fillStyle = ringGrad;
+      ctx.beginPath();
+      ctx.arc(cx, cy, r, 0, Math.PI * 2);
+      ctx.fill();
+
+      // No slices yet
+      if (!WHEEL.slices.length) return;
+
+      // Draw each slice
+      WHEEL.slices.forEach((s, idx) => {
+        // Canvas angles: 0 = 3 o'clock, but we want 0 = 12 o'clock (pointer).
+        // Shift everything by -90° so slice angles read clockwise from the top.
+        const a0 = ((s.startAngle - 90) * Math.PI) / 180;
+        const a1 = ((s.endAngle   - 90) * Math.PI) / 180;
+
+        // Radial gradient per slice for depth
+        const grad = ctx.createRadialGradient(cx, cy, r * 0.15, cx, cy, r);
+        grad.addColorStop(0,   shade(s.color, 0.85));   // brighter near center
+        grad.addColorStop(0.6, s.color);
+        grad.addColorStop(1,   shade(s.color, -0.45));  // darker at rim
+
+        ctx.beginPath();
+        ctx.moveTo(cx, cy);
+        ctx.arc(cx, cy, r, a0, a1);
+        ctx.closePath();
+        ctx.fillStyle = grad;
+        ctx.fill();
+
+        // Slice divider
+        ctx.lineWidth = 2;
+        ctx.strokeStyle = 'rgba(0,0,0,0.45)';
+        ctx.stroke();
+
+        // Label
+        const mid = (a0 + a1) / 2;
+        const sliceDeg = s.endAngle - s.startAngle;
+        const labelR = r * 0.66;
+        ctx.save();
+        ctx.translate(cx + Math.cos(mid) * labelR, cy + Math.sin(mid) * labelR);
+        ctx.rotate(mid + Math.PI / 2);  // upright relative to slice
+
+        // Font size scales with slice width, capped
+        const fontPx = Math.max(14, Math.min(34, sliceDeg * 2.1));
+        ctx.font = `700 ${fontPx}px 'Inter', sans-serif`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillStyle = '#fff';
+        ctx.shadowColor = 'rgba(0,0,0,0.65)';
+        ctx.shadowBlur = 4;
+        ctx.shadowOffsetY = 1;
+
+        // Only draw name if slice has room (>= 5° → enough for at least short name)
+        if (sliceDeg >= 4) {
+          const name = truncateForSlice(s.name, sliceDeg);
+          ctx.fillText(name, 0, -fontPx * 0.15);
+          ctx.font = `600 ${fontPx * 0.7}px 'Inter', sans-serif`;
+          ctx.fillStyle = 'rgba(255,255,255,0.85)';
+          ctx.fillText(`${s.tickets}🎟`, 0, fontPx * 0.75);
+        }
+        ctx.restore();
+      });
+
+      // Inner highlight ring (gives glassy feel)
+      ctx.beginPath();
+      ctx.arc(cx, cy, r * 0.985, 0, Math.PI * 2);
+      ctx.lineWidth = 6;
+      ctx.strokeStyle = 'rgba(255,255,255,0.08)';
+      ctx.stroke();
+    }
+
+    function truncateForSlice(name, sliceDeg) {
+      // rough char budget based on slice size
+      const maxChars = Math.max(3, Math.floor(sliceDeg * 0.85));
+      if (name.length <= maxChars) return name;
+      return name.slice(0, maxChars - 1) + '…';
+    }
+
+    // Lighten (>0) or darken (<0) a hex color by amt in [-1, 1]
+    function shade(hex, amt) {
+      const h = hex.replace('#', '');
+      const num = parseInt(h, 16);
+      let r = (num >> 16) & 0xff;
+      let g = (num >> 8)  & 0xff;
+      let b = num & 0xff;
+      const t = amt < 0 ? 0 : 255;
+      const p = Math.abs(amt);
+      r = Math.round((t - r) * p) + r;
+      g = Math.round((t - g) * p) + g;
+      b = Math.round((t - b) * p) + b;
+      return `rgb(${r}, ${g}, ${b})`;
+    }
+
+    // Spin the wheel: pick a winner weighted by tickets, then rotate so its slice
+    // lands under the pointer at 12 o'clock.
+    function spinWheel() {
+      if (WHEEL.spinning) return;
+      if (!WHEEL.slices.length) return;
+
+      WHEEL.spinning = true;
+      document.getElementById('spin-btn').disabled = true;
+      document.getElementById('reshuffle-btn').disabled = true;
+
+      // Weighted random pick (ticket-weighted)
+      const total = WHEEL.slices.reduce((s, x) => s + x.tickets, 0);
+      let pick = Math.random() * total;
+      let winnerIdx = 0;
+      for (let i = 0; i < WHEEL.slices.length; i++) {
+        pick -= WHEEL.slices[i].tickets;
+        if (pick <= 0) { winnerIdx = i; break; }
+      }
+      const winner = WHEEL.slices[winnerIdx];
+
+      // Target: midpoint of winner slice should align to the top (pointer at 0°).
+      // Slice angles are measured clockwise from 12 o'clock.
+      const sliceMidDeg = (winner.startAngle + winner.endAngle) / 2;
+
+      // Small jitter inside the slice so it doesn't always stop dead-center
+      const sliceWidth = winner.endAngle - winner.startAngle;
+      const jitter = (Math.random() - 0.5) * sliceWidth * 0.6;
+      const targetSliceAngle = sliceMidDeg + jitter;
+
+      // Current rotation modulo 360
+      const currentMod = ((WHEEL.rotation % 360) + 360) % 360;
+
+      // We need the canvas rotated so the slice midpoint sits at top (0° in our
+      // shifted coordinate system). Canvas rotates clockwise with positive deg.
+      // The slice currently sits at angle (targetSliceAngle + currentMod).
+      // We want it at 0°, so we add (360 - (targetSliceAngle + currentMod) % 360).
+      const neededDelta = (360 - ((targetSliceAngle + currentMod) % 360)) % 360;
+
+      // Add several full turns for drama
+      const extraTurns = 6 + Math.floor(Math.random() * 3); // 6-8
+      const totalDelta = extraTurns * 360 + neededDelta;
+
+      WHEEL.rotation += totalDelta;
+      WHEEL.canvas.style.transform = `rotate(${WHEEL.rotation}deg)`;
+
+      // After CSS transition completes, reveal winner
+      const onDone = () => {
+        WHEEL.canvas.removeEventListener('transitionend', onDone);
+        WHEEL.spinning = false;
+        document.getElementById('spin-btn').disabled = false;
+        document.getElementById('reshuffle-btn').disabled = false;
+        showWinner(winner);
+      };
+      WHEEL.canvas.addEventListener('transitionend', onDone, { once: true });
+    }
+
+    function showWinner(winner) {
+      document.getElementById('winner-name').textContent  = winner.name;
+      document.getElementById('winner-stats').innerHTML   =
+        `Held <strong>${winner.tickets}</strong> ticket${winner.tickets === 1 ? '' : 's'} in the draw`;
+      document.getElementById('winner-overlay').classList.add('open');
+      fireConfetti();
+    }
+
+    /* ──────── Sparkle dots around the wheel rim ──────── */
+    function buildSparkles() {
+      const wrap = document.getElementById('wheel-sparkles');
+      wrap.innerHTML = '';
+      const N = 14;
+      for (let i = 0; i < N; i++) {
+        const ang = (i / N) * Math.PI * 2;
+        const s = document.createElement('span');
+        s.style.left = `${50 + 50 * Math.cos(ang)}%`;
+        s.style.top  = `${50 + 50 * Math.sin(ang)}%`;
+        s.style.animationDelay = `${(i * 0.18) % 2.6}s`;
+        wrap.appendChild(s);
+      }
+    }
+
+    /* ──────── Confetti ──────── */
+    const confettiCanvas = document.getElementById('confetti-canvas');
+    let confettiParticles = [];
+    let confettiRaf = null;
+
+    function sizeConfetti() {
+      confettiCanvas.width  = window.innerWidth;
+      confettiCanvas.height = window.innerHeight;
+    }
+    window.addEventListener('resize', sizeConfetti);
+    sizeConfetti();
+
+    function fireConfetti() {
+      const colors = ['#39FF14', '#FFD700', '#FF3DAA', '#00E5FF', '#fff'];
+      const N = 180;
+      for (let i = 0; i < N; i++) {
+        confettiParticles.push({
+          x: window.innerWidth / 2 + (Math.random() - 0.5) * 200,
+          y: window.innerHeight / 2 + (Math.random() - 0.5) * 80,
+          vx: (Math.random() - 0.5) * 14,
+          vy: -Math.random() * 16 - 6,
+          g: 0.35 + Math.random() * 0.2,
+          size: 6 + Math.random() * 6,
+          rot: Math.random() * Math.PI * 2,
+          vr: (Math.random() - 0.5) * 0.3,
+          color: colors[Math.floor(Math.random() * colors.length)],
+          life: 0,
+          maxLife: 180 + Math.random() * 80,
+        });
+      }
+      if (!confettiRaf) confettiRaf = requestAnimationFrame(stepConfetti);
+    }
+
+    function stepConfetti() {
+      const ctx = confettiCanvas.getContext('2d');
+      ctx.clearRect(0, 0, confettiCanvas.width, confettiCanvas.height);
+
+      confettiParticles = confettiParticles.filter(p => p.life < p.maxLife && p.y < confettiCanvas.height + 40);
+      confettiParticles.forEach(p => {
+        p.vy += p.g;
+        p.x  += p.vx;
+        p.y  += p.vy;
+        p.rot += p.vr;
+        p.life++;
+        const fade = Math.max(0, 1 - p.life / p.maxLife);
+
+        ctx.save();
+        ctx.translate(p.x, p.y);
+        ctx.rotate(p.rot);
+        ctx.globalAlpha = fade;
+        ctx.fillStyle = p.color;
+        ctx.fillRect(-p.size / 2, -p.size / 3, p.size, p.size * 0.6);
+        ctx.restore();
+      });
+
+      if (confettiParticles.length) {
+        confettiRaf = requestAnimationFrame(stepConfetti);
+      } else {
+        confettiRaf = null;
+      }
+    }
+
+    /* ──────── Modal wiring ──────── */
+    function openWheelModal() {
+      if (!LEADERBOARD_DATA.length) {
+        alert('Leaderboard hasn’t loaded yet — give it a sec and try again.');
+        return;
+      }
+      buildSlices();
+      // reset rotation visually
+      WHEEL.rotation = 0;
+      WHEEL.canvas.style.transition = 'none';
+      WHEEL.canvas.style.transform = 'rotate(0deg)';
+      // force reflow so the next transition takes effect
+      void WHEEL.canvas.offsetWidth;
+      WHEEL.canvas.style.transition = '';
+      drawWheel();
+      buildSparkles();
+      WHEEL.modal.classList.add('open');
+      scrollOff = true; // pause auto-scroll while the modal is open
+    }
+
+    function closeWheelModal() {
+      WHEEL.modal.classList.remove('open');
+      document.getElementById('winner-overlay').classList.remove('open');
+      // resume auto-scroll only if the toggle says so
+      scrollOff = !document.getElementById('scroll-toggle').checked;
+    }
+
+    document.getElementById('open-wheel-btn').addEventListener('click', openWheelModal);
+    document.getElementById('wheel-close').addEventListener('click', closeWheelModal);
+    document.getElementById('wheel-modal').addEventListener('click', (e) => {
+      if (e.target === WHEEL.modal) closeWheelModal();
+    });
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && WHEEL.modal.classList.contains('open')) closeWheelModal();
+    });
+
+    document.getElementById('spin-btn').addEventListener('click', spinWheel);
+    document.getElementById('reshuffle-btn').addEventListener('click', () => {
+      if (WHEEL.spinning) return;
+      buildSlices();
+      WHEEL.rotation = 0;
+      WHEEL.canvas.style.transition = 'none';
+      WHEEL.canvas.style.transform = 'rotate(0deg)';
+      void WHEEL.canvas.offsetWidth;
+      WHEEL.canvas.style.transition = '';
+      drawWheel();
+    });
+
+    document.getElementById('close-winner-btn').addEventListener('click', () => {
+      document.getElementById('winner-overlay').classList.remove('open');
+    });
+    document.getElementById('spin-again-btn').addEventListener('click', () => {
+      document.getElementById('winner-overlay').classList.remove('open');
+      // small delay so the overlay fades before re-spin
+      setTimeout(spinWheel, 250);
+    });
   </script>
 
 </body>

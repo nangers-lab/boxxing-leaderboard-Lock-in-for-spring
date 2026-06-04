@@ -1,0 +1,1061 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BOXXING · Spring Lock-In Raffle</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+
+body{
+  background:#06090f;
+  color:#fff;
+  font-family:'Segoe UI',Arial,sans-serif;
+  min-height:100vh;
+  overflow-x:hidden;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+}
+
+/* ── Background canvas ── */
+.bg{ display:none; }
+#casinoBg{ position:fixed;inset:0;z-index:0;width:100%;height:100%; }
+#dragonCanvas{ position:fixed;inset:0;z-index:1;width:100%;height:100%;pointer-events:none; }
+
+/* ── Neon flicker for header ── */
+@keyframes neon-flicker{
+  0%,18%,20%,52%,54%,100%{
+    text-shadow:0 0 7px #FFD700,0 0 14px #FFD700,0 0 28px #FFA500,0 0 56px #FFA500,0 0 100px #FF8C00;
+    opacity:1;
+  }
+  19%,53%{text-shadow:none;opacity:0.85;}
+}
+@keyframes neon-flicker-red{
+  0%,18%,20%,52%,54%,100%{
+    text-shadow:0 0 7px #E63946,0 0 14px #E63946,0 0 28px #ff1a2e,0 0 56px #ff1a2e;
+    opacity:1;color:#ff6b78;
+  }
+  19%,53%{text-shadow:none;opacity:0.85;}
+}
+h1{ animation:neon-flicker 4s infinite; }
+.studio-tag{ animation:neon-flicker-red 3s infinite 0.5s; }
+
+/* ── Neon corner decorations ── */
+.neon-corner{
+  position:fixed;width:120px;height:120px;z-index:1;pointer-events:none;
+  opacity:0.7;animation:corner-pulse 2s ease-in-out infinite alternate;
+}
+.neon-corner.tl{top:12px;left:12px;border-top:3px solid #FFD700;border-left:3px solid #FFD700;
+  box-shadow:inset 3px 3px 0 #FFD700,0 0 12px #FFD700,-3px -3px 12px #FFD700;}
+.neon-corner.tr{top:12px;right:12px;border-top:3px solid #E63946;border-right:3px solid #E63946;
+  box-shadow:inset -3px 3px 0 #E63946,0 0 12px #E63946,3px -3px 12px #E63946;}
+.neon-corner.bl{bottom:12px;left:12px;border-bottom:3px solid #E63946;border-left:3px solid #E63946;
+  box-shadow:inset 3px -3px 0 #E63946,0 0 12px #E63946,-3px 3px 12px #E63946;}
+.neon-corner.br{bottom:12px;right:12px;border-bottom:3px solid #FFD700;border-right:3px solid #FFD700;
+  box-shadow:inset -3px -3px 0 #FFD700,0 0 12px #FFD700,3px 3px 12px #FFD700;}
+@keyframes corner-pulse{from{opacity:0.5;filter:brightness(1)}to{opacity:1;filter:brightness(1.5)}}
+
+/* ── Marquee neon border (top + bottom) ── */
+.marquee-strip{
+  position:fixed;left:0;right:0;height:18px;z-index:2;pointer-events:none;
+  overflow:hidden;
+}
+.marquee-strip.top{top:0;}
+.marquee-strip.bot{bottom:0;}
+.marquee-inner{
+  display:flex;gap:0;white-space:nowrap;
+  animation:marquee-scroll 8s linear infinite;
+  font-size:11px;font-weight:900;letter-spacing:2px;
+  color:#FFD700;text-shadow:0 0 8px #FFD700,0 0 16px #FFA500;
+  padding-top:2px;
+}
+.marquee-strip.bot .marquee-inner{animation-direction:reverse;color:#E63946;text-shadow:0 0 8px #E63946,0 0 16px #ff1a2e;}
+@keyframes marquee-scroll{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+
+/* ── Screen flash on win ── */
+#flashOverlay{
+  position:fixed;inset:0;z-index:150;pointer-events:none;
+  background:#fff;opacity:0;transition:opacity 0.05s;
+}
+
+/* ── Page layout ── */
+.page{position:relative;z-index:1;width:100%;max-width:1200px;padding:20px 24px 48px;}
+
+/* ── Header ── */
+header{text-align:center;margin-bottom:28px;}
+.studio-tag{
+  font-size:0.7rem;font-weight:800;letter-spacing:6px;
+  color:#E63946;text-transform:uppercase;margin-bottom:6px;
+}
+h1{
+  font-size:clamp(2rem,5vw,3.4rem);font-weight:900;
+  letter-spacing:3px;text-transform:uppercase;line-height:1;
+  background:linear-gradient(135deg,#FFD700 0%,#FFA500 50%,#FFD700 100%);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+  margin-bottom:8px;
+}
+.header-sub{font-size:0.8rem;color:#555;letter-spacing:2px;text-transform:uppercase;}
+.header-badge{
+  display:inline-flex;align-items:center;gap:8px;
+  margin-top:10px;padding:5px 16px;border-radius:20px;
+  border:1px solid rgba(230,57,70,0.4);background:rgba(230,57,70,0.08);
+  font-size:0.75rem;color:#E63946;letter-spacing:1px;
+}
+
+/* ── Main layout ── */
+.main{display:flex;align-items:flex-start;justify-content:center;gap:32px;flex-wrap:wrap;}
+
+/* ── Wheel section ── */
+.wheel-section{display:flex;flex-direction:column;align-items:center;}
+
+.stage{
+  position:relative;
+  display:flex;align-items:center;justify-content:center;
+  margin-bottom:24px;
+}
+
+/* Glow ring behind wheel */
+.stage::before{
+  content:'';position:absolute;
+  width:calc(100% + 60px);height:calc(100% + 60px);
+  border-radius:50%;
+  background:radial-gradient(circle,rgba(230,57,70,0.2) 0%,transparent 70%);
+  animation:pulse 2s ease-in-out infinite;
+}
+@keyframes pulse{0%,100%{opacity:0.5;transform:scale(1)}50%{opacity:1;transform:scale(1.05)}}
+
+/* Casino bulb ring canvas */
+#bulbs{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);pointer-events:none;z-index:25;}
+
+/* Pointer */
+.pointer-wrap{
+  position:absolute;top:-28px;left:50%;transform:translateX(-50%);
+  display:flex;flex-direction:column;align-items:center;z-index:20;
+}
+.pointer-body{
+  width:22px;height:48px;
+  background:linear-gradient(180deg,#FFD700,#FFA000);
+  clip-path:polygon(50% 100%,0 0,100% 0);
+  filter:drop-shadow(0 0 8px rgba(255,215,0,0.9));
+}
+
+canvas#wheel{
+  display:block;border-radius:50%;
+  box-shadow:
+    0 0 0 5px #1a0f00,
+    0 0 0 9px #E63946,
+    0 0 0 13px #1a0f00,
+    0 0 0 16px #FFD700,
+    0 0 60px rgba(230,57,70,0.3),
+    0 0 120px rgba(255,215,0,0.1);
+}
+
+.hub{
+  position:absolute;width:56px;height:56px;border-radius:50%;
+  background:radial-gradient(circle at 35% 30%,#fff 0%,#FFD700 40%,#b8860b 100%);
+  box-shadow:0 0 20px rgba(255,215,0,0.6),inset 0 -2px 4px rgba(0,0,0,0.4);
+  z-index:20;cursor:pointer;border:3px solid #fff;
+  transition:transform 0.2s;
+}
+.hub:hover{transform:scale(1.1);}
+
+/* ── Spin button ── */
+#spinBtn{
+  background:linear-gradient(180deg,#ff1a2e 0%,#8b0000 100%);
+  color:#FFD700;border:none;border-radius:50%;
+  font-size:1rem;font-weight:900;letter-spacing:3px;
+  width:130px;height:130px;cursor:pointer;text-transform:uppercase;
+  box-shadow:
+    0 0 0 6px #1a0000,
+    0 0 0 10px #FFD700,
+    0 0 0 14px #1a0000,
+    0 8px 32px rgba(230,57,70,0.8),
+    0 0 60px rgba(255,215,0,0.3);
+  transition:transform 0.1s,box-shadow 0.1s,filter 0.1s;
+  position:relative;overflow:hidden;
+  margin-top:8px;
+}
+#spinBtn::before{
+  content:'';position:absolute;inset:0;border-radius:50%;
+  background:radial-gradient(circle at 35% 30%,rgba(255,255,255,0.25) 0%,transparent 60%);
+}
+#spinBtn:hover:not(:disabled){
+  transform:scale(1.06);
+  filter:brightness(1.2);
+  box-shadow:0 0 0 6px #1a0000,0 0 0 10px #FFD700,0 0 0 14px #1a0000,0 12px 48px rgba(230,57,70,1),0 0 80px rgba(255,215,0,0.5);
+}
+#spinBtn:active:not(:disabled){transform:scale(0.96);}
+#spinBtn:disabled{opacity:0.4;cursor:not-allowed;filter:grayscale(0.5);}
+#spinBtn.spinning-pulse{animation:btn-pulse 0.3s ease-in-out infinite alternate;}
+@keyframes btn-pulse{from{filter:brightness(1)}to{filter:brightness(1.4) saturate(1.5)}}
+
+/* ── Sidebar ── */
+.sidebar{width:280px;flex-shrink:0;padding-top:8px;}
+
+.sidebar-card{
+  background:rgba(255,255,255,0.04);
+  border:1px solid rgba(255,255,255,0.08);
+  border-radius:12px;padding:20px;margin-bottom:16px;
+}
+.sidebar-title{
+  font-size:0.65rem;font-weight:800;letter-spacing:4px;text-transform:uppercase;
+  color:#E63946;margin-bottom:16px;display:flex;align-items:center;gap:8px;
+}
+.sidebar-title::after{content:'';flex:1;height:1px;background:rgba(230,57,70,0.3);}
+
+.lb-row{
+  display:grid;grid-template-columns:28px 1fr auto auto;align-items:center;gap:8px;
+  margin-bottom:10px;
+}
+.lb-icon{font-size:1rem;text-align:center;}
+.rank-num{font-size:0.7rem;font-weight:700;color:#555;display:block;text-align:center;}
+.lb-name{font-size:0.78rem;font-weight:600;color:#ddd;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.lb-bar-wrap{height:4px;background:rgba(255,255,255,0.06);border-radius:2px;overflow:hidden;}
+.lb-bar{height:100%;border-radius:2px;background:linear-gradient(90deg,#E63946,#FFD700);transition:width 1s ease;}
+.lb-tickets{font-size:0.72rem;color:#888;white-space:nowrap;}
+
+.stat-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+.stat-item{text-align:center;}
+.stat-num{font-size:1.5rem;font-weight:900;color:#FFD700;line-height:1;}
+.stat-label{font-size:0.6rem;letter-spacing:2px;color:#555;text-transform:uppercase;margin-top:2px;}
+
+/* ── Winner overlay ── */
+#winnerOverlay{
+  display:none;position:fixed;inset:0;z-index:200;
+  align-items:center;justify-content:center;
+  background:rgba(6,9,15,0.95);
+  backdrop-filter:blur(8px);
+}
+#winnerOverlay.show{display:flex;}
+
+#confettiCanvas{position:absolute;inset:0;pointer-events:none;}
+
+.winner-card{
+  position:relative;z-index:10;text-align:center;padding:48px 56px;
+  background:rgba(10,5,0,0.95);
+  border:3px solid #FFD700;
+  border-radius:20px;
+  box-shadow:
+    0 0 0 6px rgba(230,57,70,0.4),
+    0 0 80px rgba(255,215,0,0.4),
+    0 0 160px rgba(230,57,70,0.3);
+  max-width:620px;width:90%;
+  animation:card-pop 0.4s cubic-bezier(0.175,0.885,0.32,1.275);
+}
+@keyframes card-pop{from{transform:scale(0.5);opacity:0}to{transform:scale(1);opacity:1}}
+
+.w-jackpot{
+  font-size:clamp(2.5rem,8vw,5rem);font-weight:900;letter-spacing:8px;
+  text-transform:uppercase;line-height:1;margin-bottom:16px;
+  background:linear-gradient(135deg,#FFD700 0%,#fff 40%,#FFD700 60%,#FFA500 100%);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+  animation:jackpot-flash 0.5s ease-in-out infinite alternate;
+  filter:drop-shadow(0 0 20px rgba(255,215,0,0.8));
+}
+@keyframes jackpot-flash{
+  from{filter:drop-shadow(0 0 10px rgba(255,215,0,0.6)) brightness(1);}
+  to{filter:drop-shadow(0 0 40px rgba(255,215,0,1)) brightness(1.3);}
+}
+
+.w-crown{font-size:3rem;display:block;margin-bottom:8px;animation:spin-in 0.5s ease;}
+@keyframes spin-in{from{transform:rotate(-180deg) scale(0);opacity:0}to{transform:rotate(0) scale(1);opacity:1}}
+
+.w-label{
+  font-size:0.65rem;letter-spacing:8px;text-transform:uppercase;
+  color:#E63946;font-weight:800;margin-bottom:12px;
+}
+
+.w-name{
+  font-size:clamp(2rem,7vw,4.5rem);font-weight:900;
+  background:linear-gradient(135deg,#FFD700,#FFA500);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+  line-height:1.1;margin-bottom:12px;
+  animation:glow-text 1.5s ease-in-out infinite alternate;
+}
+@keyframes glow-text{from{filter:drop-shadow(0 0 10px rgba(255,215,0,0.5))}to{filter:drop-shadow(0 0 30px rgba(255,215,0,0.9))}}
+
+.w-detail{font-size:0.85rem;color:#888;margin-bottom:32px;}
+
+.w-dismiss{
+  font-size:0.6rem;letter-spacing:3px;color:#333;text-transform:uppercase;
+  cursor:pointer;
+}
+.w-dismiss:hover{color:#555;}
+
+/* ── Tier legend ── */
+.tier-legend{
+  display:flex;gap:12px;flex-wrap:wrap;justify-content:center;
+  margin-top:16px;
+}
+.tier-dot{display:flex;align-items:center;gap:5px;font-size:0.65rem;color:#666;}
+.tier-dot span{width:10px;height:10px;border-radius:50%;display:inline-block;}
+</style>
+</head>
+<body>
+<canvas id="casinoBg"></canvas>
+<canvas id="dragonCanvas"></canvas>
+<div class="bg"></div>
+<div id="flashOverlay"></div>
+
+<!-- neon corners -->
+<div class="neon-corner tl"></div>
+<div class="neon-corner tr"></div>
+<div class="neon-corner bl"></div>
+<div class="neon-corner br"></div>
+
+<!-- marquee strips -->
+<div class="marquee-strip top"><div class="marquee-inner" id="marqueeTop"></div></div>
+<div class="marquee-strip bot"><div class="marquee-inner" id="marqueeBot"></div></div>
+
+<div class="page">
+
+  <!-- ── Header ── -->
+  <header>
+    <div class="studio-tag">🥊 Boxxing Studio</div>
+    <h1>Spring Lock‑In Raffle</h1>
+    <div class="header-sub">Apr 20 – May 18, 2026 &nbsp;·&nbsp; Challenge #1546</div>
+    <div><span class="header-badge">🎟 2845 total tickets &nbsp;·&nbsp; 161 eligible contestants</span></div>
+  </header>
+
+  <!-- ── Main layout ── -->
+  <div class="main">
+
+    <!-- Wheel -->
+    <div class="wheel-section">
+      <div class="stage">
+        <div class="pointer-wrap"><div class="pointer-body"></div></div>
+        <canvas id="wheel" width="660" height="660"></canvas>
+        <canvas id="bulbs" width="780" height="780"></canvas>
+        <div class="hub" id="hubBtn"></div>
+      </div>
+
+      <button id="spinBtn">🎰 SPIN 🎰</button>
+
+      <div class="tier-legend">
+        <div class="tier-dot"><span style="background:#FFD700"></span> Champion (top tickets)</div>
+        <div class="tier-dot"><span style="background:#E63946"></span> Contender</div>
+        <div class="tier-dot"><span style="background:#FF6B35"></span> Challenger</div>
+        <div class="tier-dot"><span style="background:#00B4D8"></span> Fighter</div>
+        <div class="tier-dot"><span style="background:#9B5DE5"></span> Rookie</div>
+      </div>
+    </div>
+
+    <!-- Sidebar -->
+    <div class="sidebar">
+      <div class="sidebar-card">
+        <div class="sidebar-title">Top Contenders</div>
+        <div class="lb-row">
+      <span class="lb-icon">🥇</span>
+      <span class="lb-name">prashanthi r.</span>
+      <span class="lb-bar-wrap"><span class="lb-bar" style="width:100%"></span></span>
+      <span class="lb-tickets">96🎟</span>
+    </div><div class="lb-row">
+      <span class="lb-icon">🥈</span>
+      <span class="lb-name">Mouna D.</span>
+      <span class="lb-bar-wrap"><span class="lb-bar" style="width:96%"></span></span>
+      <span class="lb-tickets">92🎟</span>
+    </div><div class="lb-row">
+      <span class="lb-icon">🥉</span>
+      <span class="lb-name">Daniele W.</span>
+      <span class="lb-bar-wrap"><span class="lb-bar" style="width:96%"></span></span>
+      <span class="lb-tickets">92🎟</span>
+    </div><div class="lb-row">
+      <span class="lb-icon"><span class="rank-num">4</span></span>
+      <span class="lb-name">Ahmed S.</span>
+      <span class="lb-bar-wrap"><span class="lb-bar" style="width:89%"></span></span>
+      <span class="lb-tickets">85🎟</span>
+    </div><div class="lb-row">
+      <span class="lb-icon"><span class="rank-num">5</span></span>
+      <span class="lb-name">Graham M.</span>
+      <span class="lb-bar-wrap"><span class="lb-bar" style="width:74%"></span></span>
+      <span class="lb-tickets">71🎟</span>
+    </div><div class="lb-row">
+      <span class="lb-icon"><span class="rank-num">6</span></span>
+      <span class="lb-name">Sebastian P.</span>
+      <span class="lb-bar-wrap"><span class="lb-bar" style="width:69%"></span></span>
+      <span class="lb-tickets">66🎟</span>
+    </div><div class="lb-row">
+      <span class="lb-icon"><span class="rank-num">7</span></span>
+      <span class="lb-name">Claude O.</span>
+      <span class="lb-bar-wrap"><span class="lb-bar" style="width:69%"></span></span>
+      <span class="lb-tickets">66🎟</span>
+    </div><div class="lb-row">
+      <span class="lb-icon"><span class="rank-num">8</span></span>
+      <span class="lb-name">Anmol S.</span>
+      <span class="lb-bar-wrap"><span class="lb-bar" style="width:65%"></span></span>
+      <span class="lb-tickets">62🎟</span>
+    </div><div class="lb-row">
+      <span class="lb-icon"><span class="rank-num">9</span></span>
+      <span class="lb-name">Carlo L.</span>
+      <span class="lb-bar-wrap"><span class="lb-bar" style="width:64%"></span></span>
+      <span class="lb-tickets">61🎟</span>
+    </div><div class="lb-row">
+      <span class="lb-icon"><span class="rank-num">10</span></span>
+      <span class="lb-name">Cecilia A.</span>
+      <span class="lb-bar-wrap"><span class="lb-bar" style="width:63%"></span></span>
+      <span class="lb-tickets">60🎟</span>
+    </div>
+      </div>
+      <div class="sidebar-card">
+        <div class="sidebar-title">Stats</div>
+        <div class="stat-grid">
+          <div class="stat-item"><div class="stat-num">161</div><div class="stat-label">Contestants</div></div>
+          <div class="stat-item"><div class="stat-num">2845</div><div class="stat-label">Total Tickets</div></div>
+          <div class="stat-item"><div class="stat-num">96</div><div class="stat-label">Max Tickets</div></div>
+          <div class="stat-item"><div class="stat-num">17.7</div><div class="stat-label">Avg Tickets</div></div>
+        </div>
+      </div>
+      <div style="font-size:0.6rem;color:#333;text-align:center;line-height:1.6;">
+        Last updated: 2026-06-04, 10:18:29 a.m. (Montreal time)<br>Bigger slice = more raffle tickets = higher odds
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Winner overlay -->
+<div id="winnerOverlay">
+  <canvas id="confettiCanvas"></canvas>
+  <div class="winner-card">
+    <div class="w-jackpot">JACKPOT!</div>
+    <span class="w-crown">🏆</span>
+    <div class="w-label">🎉 &nbsp; Winner &nbsp; 🎉</div>
+    <div class="w-name" id="winnerName"></div>
+    <div class="w-detail" id="winnerDetail"></div>
+    <div class="w-dismiss" id="dismissBtn">tap anywhere to continue</div>
+  </div>
+</div>
+
+<script>
+// ── Data ──────────────────────────────────────────────────────────────────────
+const CONTESTANTS = [{"rank":148,"name":"Luowei Yan","tickets":3},{"rank":14,"name":"Sara Ayeb","tickets":50},{"rank":100,"name":"Simon Leduc","tickets":8},{"rank":97,"name":"Marcilia Neto","tickets":8},{"rank":117,"name":"Kevin Ma","tickets":6},{"rank":25,"name":"Shaun Waithe","tickets":32},{"rank":54,"name":"jackie Filion","tickets":17},{"rank":12,"name":"Kristel Desvallons","tickets":55},{"rank":134,"name":"kelly decoste","tickets":4},{"rank":102,"name":"Xiaoyan Fang","tickets":8},{"rank":5,"name":"Graham Morrison","tickets":71},{"rank":20,"name":"Oscar Sandoval","tickets":37},{"rank":89,"name":"Tanya Pleau","tickets":9},{"rank":72,"name":"Marielle Domercq","tickets":13},{"rank":53,"name":"Marta Hritcu","tickets":18},{"rank":114,"name":"Arturo Arellano","tickets":6},{"rank":159,"name":"Manon Claude","tickets":1},{"rank":69,"name":"Chris Easton","tickets":13},{"rank":60,"name":"Marie-Lou x","tickets":16},{"rank":65,"name":"Myriam Boulianne","tickets":14},{"rank":91,"name":"Bryan Chan","tickets":8},{"rank":120,"name":"ilham Coucou","tickets":5},{"rank":36,"name":"Sahar Salmanzade","tickets":24},{"rank":75,"name":"Sophie Lok","tickets":12},{"rank":24,"name":"Marinna Mendolia","tickets":32},{"rank":125,"name":"Paul Beaumont","tickets":5},{"rank":19,"name":"Romeo Anawi","tickets":39},{"rank":111,"name":"Valerie Huang","tickets":7},{"rank":156,"name":"Franck Mabika","tickets":1},{"rank":74,"name":"Jess Doherty","tickets":12},{"rank":39,"name":"Laurise Roy-Tremblay","tickets":22},{"rank":94,"name":"Elizabeth Han","tickets":8},{"rank":115,"name":"Aurélie Darracq","tickets":6},{"rank":101,"name":"Vicky Vallee","tickets":8},{"rank":130,"name":"Celena Yuan","tickets":4},{"rank":157,"name":"Gloria Molina","tickets":1},{"rank":1,"name":"prashanthi ramesh","tickets":96},{"rank":37,"name":"geoffrey dambry","tickets":23},{"rank":22,"name":"Rahul Reddy Ayyapaneni","tickets":33},{"rank":56,"name":"Marina Khan","tickets":17},{"rank":147,"name":"Laurieanne Lemay","tickets":3},{"rank":150,"name":"Yelena Rodriguez","tickets":3},{"rank":107,"name":"Josh Gawel","tickets":7},{"rank":63,"name":"Charity Adzie","tickets":14},{"rank":142,"name":"Alessia Arsenault","tickets":3},{"rank":87,"name":"Jenny Nguyen","tickets":9},{"rank":35,"name":"Jolyanne Dancause","tickets":25},{"rank":29,"name":"Taha Meskini","tickets":30},{"rank":136,"name":"Mohamed Tazi","tickets":4},{"rank":42,"name":"Brittany Reffca","tickets":20},{"rank":152,"name":"Armando Garcia","tickets":2},{"rank":151,"name":"Alice Leung","tickets":2},{"rank":90,"name":"Amelie CARLE","tickets":8},{"rank":132,"name":"Jean Christophe Cusson","tickets":4},{"rank":51,"name":"Aghiles MEDDAHI","tickets":18},{"rank":146,"name":"karishma mastar","tickets":3},{"rank":95,"name":"Julie Soucy","tickets":8},{"rank":86,"name":"Valerie Adelson","tickets":10},{"rank":23,"name":"Maria Tarrouzi","tickets":32},{"rank":124,"name":"Michelle Mckenzie","tickets":5},{"rank":138,"name":"Yasser Chtaini","tickets":4},{"rank":161,"name":"sameer Borwankar","tickets":1},{"rank":84,"name":"Karla Guerrero","tickets":10},{"rank":98,"name":"Mathieu De Breyne","tickets":8},{"rank":8,"name":"Anmol Sinha","tickets":62},{"rank":129,"name":"brenda heng","tickets":4},{"rank":113,"name":"Anna Koroltchouk","tickets":6},{"rank":50,"name":"Emily Sanchez","tickets":19},{"rank":10,"name":"Cecilia Amarilla","tickets":60},{"rank":93,"name":"Christophe Langlois","tickets":8},{"rank":149,"name":"Xinchen Zou","tickets":3},{"rank":34,"name":"Fereshteh Ghaemiyekta","tickets":25},{"rank":82,"name":"Caroline Lucien","tickets":10},{"rank":73,"name":"Nathalie Alturk","tickets":13},{"rank":80,"name":"Amandine Cardinaud","tickets":10},{"rank":13,"name":"Brianna Tejada","tickets":54},{"rank":110,"name":"Samma Ahmed","tickets":7},{"rank":128,"name":"yalexa casado","tickets":5},{"rank":11,"name":"Jean Pierre Campbell","tickets":55},{"rank":64,"name":"Lydia Zhang","tickets":14},{"rank":92,"name":"Camila Sanchez","tickets":8},{"rank":61,"name":"Moises Castello","tickets":16},{"rank":21,"name":"Yara El Amine","tickets":36},{"rank":17,"name":"azita ghaemi","tickets":44},{"rank":105,"name":"Catalina Nicolai","tickets":7},{"rank":43,"name":"Emmanuel Danho","tickets":20},{"rank":108,"name":"Patrick Yutiga","tickets":7},{"rank":30,"name":"Patricia Pesquera","tickets":29},{"rank":49,"name":"Cassidy Milroy","tickets":19},{"rank":122,"name":"Leon Assayag","tickets":5},{"rank":27,"name":"sanaz esmaeili","tickets":31},{"rank":16,"name":"Albelis (Albe) Becea","tickets":44},{"rank":59,"name":"Mandy Torres","tickets":16},{"rank":137,"name":"TONY TONE","tickets":4},{"rank":141,"name":"alessandra pignatelli","tickets":3},{"rank":78,"name":"Lima L","tickets":11},{"rank":99,"name":"Patrick Chapdelaine","tickets":8},{"rank":158,"name":"Lorraine Doucet Sisto","tickets":1},{"rank":45,"name":"Peggy B","tickets":20},{"rank":153,"name":"Gabriel Charron","tickets":2},{"rank":71,"name":"Liliane Bamdadian","tickets":13},{"rank":131,"name":"J.P. Szydlo","tickets":4},{"rank":121,"name":"Jessica Brien dit Desrochers","tickets":5},{"rank":66,"name":"Owen Ortiz","tickets":14},{"rank":67,"name":"Sadaf Gharaati","tickets":14},{"rank":7,"name":"Sebastian Perez","tickets":66},{"rank":79,"name":"Manel Lag","tickets":11},{"rank":103,"name":"Agatha Iacono","tickets":7},{"rank":70,"name":"Laura Fernández","tickets":13},{"rank":68,"name":"Sadie Robichaud","tickets":14},{"rank":104,"name":"anastasia burlakova","tickets":7},{"rank":106,"name":"Gabrielle Rioux","tickets":7},{"rank":144,"name":"Beatrice Dragomir","tickets":3},{"rank":88,"name":"Laura Assayag","tickets":9},{"rank":44,"name":"Gabriel Farji","tickets":20},{"rank":155,"name":"Pia Thakur","tickets":2},{"rank":48,"name":"Zuleira Figueredo","tickets":20},{"rank":57,"name":"Pearl Chan","tickets":17},{"rank":143,"name":"Amelia Baxter","tickets":3},{"rank":76,"name":"Vanessa Waked","tickets":12},{"rank":116,"name":"Kateryna Vikulina","tickets":6},{"rank":4,"name":"Ahmed Shehata","tickets":85},{"rank":154,"name":"Ines Kacanja","tickets":2},{"rank":52,"name":"Alexandra Mestre","tickets":18},{"rank":6,"name":"Claude Oliva","tickets":66},{"rank":139,"name":"Yujin Seol","tickets":4},{"rank":58,"name":"Jessica Chan","tickets":16},{"rank":140,"name":"Agnes Tam","tickets":3},{"rank":46,"name":"Rachel Lawal","tickets":20},{"rank":83,"name":"Ian Ashmore","tickets":10},{"rank":28,"name":"Anne-Marie Desnoyers-Valade","tickets":30},{"rank":77,"name":"antony brisson","tickets":11},{"rank":31,"name":"Woojae Kim","tickets":29},{"rank":119,"name":"Mili Maldonado","tickets":6},{"rank":3,"name":"Mouna D","tickets":92},{"rank":9,"name":"Carlo Lubrano","tickets":61},{"rank":85,"name":"stephen Hart","tickets":10},{"rank":26,"name":"Veta moore","tickets":32},{"rank":160,"name":"Pedro Delfino","tickets":1},{"rank":81,"name":"Ariane Bedard-Beauregard","tickets":10},{"rank":40,"name":"maite Delgado","tickets":22},{"rank":127,"name":"Vighnesh Prabhu","tickets":5},{"rank":15,"name":"Flo Gaulupeau","tickets":47},{"rank":2,"name":"Daniele Wolf","tickets":92},{"rank":126,"name":"Theresa Knowles","tickets":5},{"rank":62,"name":"Ouadie Yousfi","tickets":16},{"rank":32,"name":"I-Kai Chen","tickets":26},{"rank":18,"name":"Kareem Shaheen","tickets":39},{"rank":47,"name":"Yonhi Do","tickets":20},{"rank":118,"name":"Mary-Lorence Lell Fotso","tickets":6},{"rank":41,"name":"Shawna Day","tickets":21},{"rank":145,"name":"Gabriela Cousen Nogueira","tickets":3},{"rank":38,"name":"Crystal Lang","tickets":22},{"rank":33,"name":"meryem lasfar","tickets":26},{"rank":123,"name":"Lydia Zhang","tickets":5},{"rank":55,"name":"Lina Gotautaite","tickets":17},{"rank":96,"name":"leonie Deslauriers","tickets":8},{"rank":112,"name":"Alexandra Del Corpo","tickets":6},{"rank":133,"name":"Jennifer Baldeo","tickets":4},{"rank":135,"name":"Laurie Sejour","tickets":4},{"rank":109,"name":"Rolando Sosa Morteo","tickets":7}];
+const TOTAL       = 2845;
+const MAX_T       = 96;
+const MIN_T       = 1;
+const N           = CONTESTANTS.length;
+
+// Tier colours: segments sorted highest→lowest, so index 0 = top contestant
+function segColor(idx) {
+  const tiers = [
+    ['#FFD700','#FFC300','#FFB300','#FFA000','#FF8F00'],  // gold — champion
+    ['#E63946','#D62839','#C1121F','#A4133C','#9d0208'],  // red  — contender
+    ['#FF6B35','#F4A261','#FB8500','#E76F51','#F77F00'],  // orange — challenger
+    ['#00B4D8','#0077B6','#0096C7','#023E8A','#48CAE4'],  // blue — fighter
+    ['#9B5DE5','#7B2FBE','#6C63FF','#4527A0','#8338EC'],  // purple — rookie
+  ];
+  const ti = Math.floor((idx / N) * tiers.length);
+  const tier = tiers[Math.min(ti, tiers.length - 1)];
+  return tier[idx % tier.length];
+}
+
+// Pre-compute segments
+const segments = [];
+let cum = -Math.PI / 2;
+CONTESTANTS.forEach((c, idx) => {
+  const sweep = (c.tickets / TOTAL) * 2 * Math.PI;
+  segments.push({ ...c, idx, color: segColor(idx), startAngle: cum, endAngle: cum + sweep, midAngle: cum + sweep / 2, sweep });
+  cum += sweep;
+});
+
+// ── Canvas setup ──────────────────────────────────────────────────────────────
+const canvas = document.getElementById('wheel');
+const ctx    = canvas.getContext('2d');
+const CX = canvas.width / 2, CY = canvas.height / 2, R = CX - 8;
+
+// ── Casino background ─────────────────────────────────────────────────────────
+(function() {
+  const bg = document.getElementById('casinoBg');
+  const bx = bg.getContext('2d');
+  function resize() { bg.width = window.innerWidth; bg.height = window.innerHeight; }
+  resize(); window.addEventListener('resize', resize);
+
+  // Spotlights
+  const spots = [
+    { x: 0.15, y: 0.5, angle: 0,    speed: 0.004, color: 'rgba(255,215,0,0.07)' },
+    { x: 0.85, y: 0.5, angle: Math.PI, speed: -0.003, color: 'rgba(230,57,70,0.07)' },
+    { x: 0.5,  y: 0.0, angle: Math.PI/2, speed: 0.005, color: 'rgba(0,180,216,0.05)' },
+  ];
+
+  // Falling casino particles
+  const SYMBOLS = ['♠','♥','♦','♣','7','$','★','🎲','🃏','💰'];
+  const particles = Array.from({length: 60}, () => ({
+    x: Math.random(),
+    y: Math.random(),
+    sym: SYMBOLS[Math.floor(Math.random() * SYMBOLS.length)],
+    size: 14 + Math.random() * 22,
+    speed: 0.0003 + Math.random() * 0.0006,
+    drift: (Math.random() - 0.5) * 0.0002,
+    rot: Math.random() * Math.PI * 2,
+    rotSpeed: (Math.random() - 0.5) * 0.02,
+    alpha: 0.06 + Math.random() * 0.12,
+    color: ['#FFD700','#E63946','#fff','#00B4D8','#9B5DE5'][Math.floor(Math.random()*5)],
+  }));
+
+  function drawBg(ts) {
+    const W = bg.width, H = bg.height;
+    bx.clearRect(0,0,W,H);
+
+    // Base felt gradient
+    const grad = bx.createRadialGradient(W/2,H/2,0,W/2,H/2,Math.max(W,H)*0.8);
+    grad.addColorStop(0, '#0a1a0a');
+    grad.addColorStop(0.5, '#060d06');
+    grad.addColorStop(1, '#020502');
+    bx.fillStyle = grad;
+    bx.fillRect(0,0,W,H);
+
+    // Felt grid lines
+    bx.strokeStyle = 'rgba(255,255,255,0.025)';
+    bx.lineWidth = 1;
+    for(let x=0;x<W;x+=50){bx.beginPath();bx.moveTo(x,0);bx.lineTo(x,H);bx.stroke();}
+    for(let y=0;y<H;y+=50){bx.beginPath();bx.moveTo(0,y);bx.lineTo(W,y);bx.stroke();}
+
+    // Spotlights
+    spots.forEach(s => {
+      s.angle += s.speed;
+      const len = Math.max(W,H) * 0.7;
+      const tx = s.x * W + Math.cos(s.angle) * len * 0.5;
+      const ty = s.y * H + Math.sin(s.angle) * len * 0.5;
+      const sg = bx.createRadialGradient(tx,ty,0,tx,ty,len*0.4);
+      sg.addColorStop(0, s.color);
+      sg.addColorStop(1, 'rgba(0,0,0,0)');
+      bx.fillStyle = sg;
+      bx.fillRect(0,0,W,H);
+    });
+
+    // Falling symbols
+    particles.forEach(p => {
+      p.y += p.speed;
+      p.x += p.drift;
+      p.rot += p.rotSpeed;
+      if (p.y > 1.1) { p.y = -0.05; p.x = Math.random(); }
+      if (p.x < -0.05 || p.x > 1.05) p.drift *= -1;
+      bx.save();
+      bx.translate(p.x * W, p.y * H);
+      bx.rotate(p.rot);
+      bx.font = `${p.size}px serif`;
+      bx.fillStyle = p.color;
+      bx.globalAlpha = p.alpha;
+      bx.textAlign = 'center';
+      bx.textBaseline = 'middle';
+      bx.fillText(p.sym, 0, 0);
+      bx.restore();
+    });
+
+    bx.globalAlpha = 1;
+    requestAnimationFrame(drawBg);
+  }
+  requestAnimationFrame(drawBg);
+
+  // Marquee text
+  const marqueeText = '🎰 WINNER WINNER CHICKEN DINNER 🎲 BOXXING STUDIO 🃏 SPRING LOCK-IN 💰 ALL IN 🏆 JACKPOT 🎴 ';
+  const topEl = document.getElementById('marqueeTop');
+  const botEl = document.getElementById('marqueeBot');
+  if (topEl) topEl.textContent = marqueeText.repeat(6);
+  if (botEl) botEl.textContent = marqueeText.repeat(6);
+})();
+
+// ── Dragon ────────────────────────────────────────────────────────────────────
+(function() {
+  const dc = document.getElementById('dragonCanvas');
+  const dx = dc.getContext('2d');
+  function resize(){ dc.width = window.innerWidth; dc.height = window.innerHeight; }
+  resize(); window.addEventListener('resize', resize);
+
+  function drawDragon(t) {
+    const W = dc.width, H = dc.height;
+    dx.clearRect(0,0,W,H);
+    const cx = W * 0.5, cy = H * 0.52;
+    const s  = Math.min(W, H) * 0.40;
+    const breathe = Math.sin(t * 0.9) * 0.018;
+    const wingFlap = Math.sin(t * 1.4) * 0.06;
+
+    dx.save();
+    dx.translate(cx, cy);
+    dx.scale(s, s);
+
+    // ── Right wing ──
+    dx.globalAlpha = 0.18;
+    dx.beginPath();
+    dx.moveTo(0.12, -0.08 + wingFlap);
+    dx.bezierCurveTo(0.35,-0.5+wingFlap*0.5, 0.9,-0.8+wingFlap, 1.15,-0.55+wingFlap);
+    dx.bezierCurveTo(1.0,-0.35, 0.75,-0.15, 0.5, 0.05);
+    dx.bezierCurveTo(0.3,0.15, 0.18,0.08, 0.12,-0.08+wingFlap);
+    dx.fillStyle='#6B0000'; dx.fill();
+    // membrane lines
+    dx.globalAlpha=0.1;
+    [[0.42,-0.25],[0.68,-0.45],[0.95,-0.5]].forEach(([tx,ty]) => {
+      dx.beginPath(); dx.moveTo(0.15,0.0); dx.lineTo(tx,ty+wingFlap*0.7);
+      dx.strokeStyle='#E63946'; dx.lineWidth=0.018; dx.stroke();
+    });
+
+    // ── Left wing ──
+    dx.globalAlpha=0.18;
+    dx.save(); dx.scale(-1,1);
+    dx.beginPath();
+    dx.moveTo(0.12,-0.08+wingFlap);
+    dx.bezierCurveTo(0.35,-0.5+wingFlap*0.5, 0.9,-0.8+wingFlap, 1.15,-0.55+wingFlap);
+    dx.bezierCurveTo(1.0,-0.35, 0.75,-0.15, 0.5,0.05);
+    dx.bezierCurveTo(0.3,0.15, 0.18,0.08, 0.12,-0.08+wingFlap);
+    dx.fillStyle='#6B0000'; dx.fill();
+    dx.globalAlpha=0.1;
+    [[0.42,-0.25],[0.68,-0.45],[0.95,-0.5]].forEach(([tx,ty]) => {
+      dx.beginPath(); dx.moveTo(0.15,0.0); dx.lineTo(tx,ty+wingFlap*0.7);
+      dx.strokeStyle='#E63946'; dx.lineWidth=0.018; dx.stroke();
+    });
+    dx.restore();
+
+    // ── Tail ──
+    dx.globalAlpha=0.20;
+    dx.beginPath();
+    dx.moveTo(0.12,0.28);
+    dx.bezierCurveTo(0.45,0.52, 0.78,0.38, 0.9,0.62);
+    dx.bezierCurveTo(0.98,0.76, 0.82,0.84, 0.72,0.76);
+    dx.strokeStyle='#C1121F'; dx.lineWidth=0.07; dx.lineCap='round'; dx.stroke();
+    // tail spike
+    dx.beginPath();
+    dx.moveTo(0.72,0.76);
+    dx.bezierCurveTo(0.65,0.82,0.6,0.9,0.64,0.92);
+    dx.bezierCurveTo(0.68,0.94,0.76,0.86,0.72,0.76);
+    dx.fillStyle='#E63946'; dx.fill();
+
+    // ── Body ──
+    dx.globalAlpha=0.22;
+    dx.beginPath();
+    dx.ellipse(0, 0.1+breathe, 0.22, 0.34, Math.PI*0.04, 0, Math.PI*2);
+    const bg2 = dx.createRadialGradient(-0.05,0.0,0.02, 0,0.1,0.32);
+    bg2.addColorStop(0,'#E63946'); bg2.addColorStop(1,'#6B0000');
+    dx.fillStyle=bg2; dx.fill();
+    // belly scales
+    dx.strokeStyle='rgba(255,120,120,0.35)'; dx.lineWidth=0.018;
+    for(let i=0;i<5;i++){
+      dx.beginPath();
+      dx.arc(0, -0.1+i*0.1+breathe, 0.14-i*0.01, Math.PI*0.12, Math.PI*0.88);
+      dx.stroke();
+    }
+
+    // ── Neck ──
+    dx.globalAlpha=0.25;
+    dx.beginPath();
+    dx.moveTo(-0.04,-0.22+breathe*0.5);
+    dx.bezierCurveTo(-0.12,-0.35, -0.18,-0.46, -0.14,-0.56);
+    dx.strokeStyle='#C1121F'; dx.lineWidth=0.14; dx.lineCap='round'; dx.stroke();
+
+    // ── Head ──
+    dx.globalAlpha=0.26;
+    dx.beginPath();
+    dx.ellipse(-0.17,-0.66, 0.14,0.11, -Math.PI*0.18, 0, Math.PI*2);
+    dx.fillStyle='#A4133C'; dx.fill();
+
+    // upper jaw / snout
+    dx.beginPath();
+    dx.moveTo(-0.26,-0.65);
+    dx.bezierCurveTo(-0.38,-0.62, -0.44,-0.67, -0.40,-0.75);
+    dx.bezierCurveTo(-0.36,-0.80, -0.26,-0.74, -0.26,-0.65);
+    dx.fillStyle='#8B0000'; dx.fill();
+
+    // lower jaw (open)
+    dx.beginPath();
+    dx.moveTo(-0.26,-0.65);
+    dx.bezierCurveTo(-0.38,-0.58, -0.45,-0.55, -0.41,-0.49);
+    dx.bezierCurveTo(-0.35,-0.50, -0.26,-0.60, -0.26,-0.65);
+    dx.fillStyle='#FF4455'; dx.fill();
+
+    // teeth
+    dx.fillStyle='rgba(255,255,255,0.7)';
+    [[-0.30,-0.65],[-0.34,-0.64],[-0.38,-0.64]].forEach(([tx,ty]) => {
+      dx.beginPath(); dx.moveTo(tx,ty);
+      dx.lineTo(tx-0.01,ty+0.03); dx.lineTo(tx+0.01,ty+0.03);
+      dx.fill();
+    });
+
+    // nostril
+    dx.globalAlpha=0.3;
+    dx.beginPath();
+    dx.ellipse(-0.39,-0.72, 0.012,0.008, Math.PI*0.1, 0, Math.PI*2);
+    dx.fillStyle='#2d0000'; dx.fill();
+
+    // ── Eye ──
+    dx.globalAlpha=0.55;
+    dx.beginPath();
+    dx.ellipse(-0.12,-0.69, 0.028,0.022, 0, 0, Math.PI*2);
+    dx.fillStyle='#FFD700'; dx.fill();
+    const eyeGlow = dx.createRadialGradient(-0.12,-0.69,0,-0.12,-0.69,0.04);
+    eyeGlow.addColorStop(0,'rgba(255,215,0,0.4)');
+    eyeGlow.addColorStop(1,'rgba(255,215,0,0)');
+    dx.fillStyle=eyeGlow; dx.fill();
+    dx.beginPath();
+    dx.ellipse(-0.12,-0.69, 0.013,0.022, 0, 0, Math.PI*2);
+    dx.fillStyle='#000'; dx.fill();
+
+    // ── Horns ──
+    dx.globalAlpha=0.30;
+    dx.strokeStyle='#FFD700'; dx.lineWidth=0.022; dx.lineCap='round';
+    dx.beginPath(); dx.moveTo(-0.08,-0.74);
+    dx.bezierCurveTo(-0.06,-0.87,-0.04,-0.93,-0.05,-0.91); dx.stroke();
+    dx.beginPath(); dx.moveTo(-0.18,-0.76);
+    dx.bezierCurveTo(-0.17,-0.89,-0.14,-0.95,-0.15,-0.93); dx.stroke();
+    // small horn nubs
+    dx.lineWidth=0.014;
+    dx.beginPath(); dx.moveTo(-0.04,-0.74);
+    dx.bezierCurveTo(-0.01,-0.80,0.0,-0.84,-0.01,-0.82); dx.stroke();
+
+    // ── Spine spikes ──
+    dx.globalAlpha=0.18;
+    dx.fillStyle='#FFD700';
+    for(let i=0;i<6;i++){
+      const sy = -0.18 + i*0.09 + breathe*0.3;
+      const sx = -0.03 + i*0.008;
+      const sh = 0.055 - i*0.004;
+      dx.beginPath();
+      dx.moveTo(sx, sy); dx.lineTo(sx-0.025,sy+sh); dx.lineTo(sx+0.025,sy+sh);
+      dx.fill();
+    }
+
+    // ── Right arm ──
+    dx.globalAlpha=0.22;
+    dx.beginPath();
+    dx.moveTo(0.14,0.15); dx.bezierCurveTo(0.28,0.28,0.36,0.42,0.33,0.54);
+    dx.strokeStyle='#A4133C'; dx.lineWidth=0.072; dx.lineCap='round'; dx.stroke();
+
+    // ── Left arm ──
+    dx.beginPath();
+    dx.moveTo(-0.14,0.15); dx.bezierCurveTo(-0.28,0.28,-0.36,0.42,-0.33,0.54);
+    dx.stroke();
+
+    // ── Boxing gloves ──
+    dx.globalAlpha=0.30;
+    function drawGlove(gx, gy, flip) {
+      // main glove body
+      dx.beginPath();
+      dx.ellipse(gx, gy, 0.105, 0.092, flip*Math.PI*0.12, 0, Math.PI*2);
+      const gg = dx.createRadialGradient(gx-flip*0.03,gy-0.03,0.01, gx,gy,0.12);
+      gg.addColorStop(0,'#FF4444'); gg.addColorStop(0.6,'#CC0000'); gg.addColorStop(1,'#6B0000');
+      dx.fillStyle=gg; dx.fill();
+      // gold border
+      dx.strokeStyle='#FFD700'; dx.lineWidth=0.016; dx.stroke();
+      // thumb knuckle
+      dx.beginPath();
+      dx.ellipse(gx+flip*0.085,gy-0.03, 0.038,0.030, flip*Math.PI*0.3, 0, Math.PI*2);
+      dx.fillStyle='#DD3333'; dx.fill();
+      dx.strokeStyle='#FFD700'; dx.lineWidth=0.012; dx.stroke();
+      // wrist lace
+      dx.beginPath();
+      dx.moveTo(gx-flip*0.07, gy+0.06); dx.lineTo(gx+flip*0.07, gy+0.06);
+      dx.strokeStyle='rgba(255,215,0,0.7)'; dx.lineWidth=0.014; dx.stroke();
+      // knuckle lines
+      dx.strokeStyle='rgba(0,0,0,0.35)'; dx.lineWidth=0.01;
+      for(let k=0;k<3;k++){
+        dx.beginPath();
+        dx.moveTo(gx+flip*(0.01+k*0.025), gy-0.06);
+        dx.lineTo(gx+flip*(0.01+k*0.025), gy+0.02);
+        dx.stroke();
+      }
+    }
+    drawGlove( 0.33, 0.60,  1);
+    drawGlove(-0.33, 0.60, -1);
+
+    dx.restore();
+
+    // ── Fire breath ──
+    dx.save();
+    dx.translate(cx, cy);
+    dx.scale(s, s);
+    const fireFlicker = Math.sin(t*4)*0.03 + Math.sin(t*7)*0.015;
+    for(let fi=0;fi<7;fi++){
+      const ff=fi/6;
+      const spread=(fi-3)*0.038 + Math.sin(t*3+fi)*0.015;
+      const fg = dx.createLinearGradient(-0.41,-0.60, -0.9-ff*0.25,-0.55+spread);
+      fg.addColorStop(0,'rgba(255,80,0,0.7)');
+      fg.addColorStop(0.3,'rgba(255,165,0,0.45)');
+      fg.addColorStop(0.7,'rgba(255,255,0,0.2)');
+      fg.addColorStop(1,'rgba(255,255,100,0)');
+      dx.globalAlpha=0.20-ff*0.05;
+      dx.beginPath();
+      dx.moveTo(-0.41,-0.57);
+      dx.bezierCurveTo(
+        -0.55,-0.57+spread*0.4,
+        -0.68,-0.54+spread*0.8+fireFlicker,
+        -0.88-ff*0.18,-0.50+spread*1.4+fireFlicker
+      );
+      dx.lineWidth=0.055-ff*0.005;
+      dx.strokeStyle=fg; dx.lineCap='round'; dx.stroke();
+    }
+    // fire glow at mouth
+    dx.globalAlpha=0.12+Math.sin(t*5)*0.04;
+    const fg2=dx.createRadialGradient(-0.43,-0.57,0,-0.43,-0.57,0.15);
+    fg2.addColorStop(0,'rgba(255,150,0,0.9)');
+    fg2.addColorStop(1,'rgba(255,50,0,0)');
+    dx.fillStyle=fg2;
+    dx.beginPath(); dx.arc(-0.43,-0.57,0.15,0,Math.PI*2); dx.fill();
+
+    dx.restore();
+  }
+
+  function loop(ts) {
+    drawDragon(ts / 1000);
+    requestAnimationFrame(loop);
+  }
+  requestAnimationFrame(loop);
+})();
+
+// ── Audio ─────────────────────────────────────────────────────────────────────
+let audioCtx = null;
+function initAudio() { if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)(); }
+
+function tick(speed) {
+  if (!audioCtx) return;
+  const o = audioCtx.createOscillator(), g = audioCtx.createGain();
+  o.connect(g); g.connect(audioCtx.destination);
+  o.type = 'triangle';
+  o.frequency.value = 180 + speed * 60;
+  g.gain.setValueAtTime(0.12, audioCtx.currentTime);
+  g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.035);
+  o.start(); o.stop(audioCtx.currentTime + 0.04);
+}
+
+function coinSound() {
+  if (!audioCtx) return;
+  [880, 1108, 1320, 1760].forEach((freq, i) => {
+    const o = audioCtx.createOscillator(), g = audioCtx.createGain();
+    o.connect(g); g.connect(audioCtx.destination);
+    o.type = 'sine'; o.frequency.value = freq;
+    const t = audioCtx.currentTime + i * 0.07;
+    g.gain.setValueAtTime(0.2, t);
+    g.gain.exponentialRampToValueAtTime(0.001, t + 0.25);
+    o.start(t); o.stop(t + 0.3);
+  });
+}
+
+function winSound() {
+  if (!audioCtx) return;
+  coinSound();
+  setTimeout(coinSound, 200);
+  setTimeout(coinSound, 380);
+  [261,329,392,523,659,784,1047].forEach((freq, i) => {
+    const o = audioCtx.createOscillator(), g = audioCtx.createGain();
+    o.connect(g); g.connect(audioCtx.destination);
+    o.type = 'triangle'; o.frequency.value = freq;
+    const t = audioCtx.currentTime + 0.6 + i * 0.1;
+    g.gain.setValueAtTime(0.18, t);
+    g.gain.exponentialRampToValueAtTime(0.001, t + 0.4);
+    o.start(t); o.stop(t + 0.45);
+  });
+}
+
+// ── Casino bulb ring ──────────────────────────────────────────────────────────
+const bulbCanvas = document.getElementById('bulbs');
+const bctx       = bulbCanvas.getContext('2d');
+const BCX = bulbCanvas.width / 2, BCY = bulbCanvas.height / 2;
+const BULB_R     = 374;
+const NUM_BULBS  = 60;
+let   bulbOffset = 0;
+let   bulbFast   = false;
+
+function drawBulbs() {
+  bctx.clearRect(0, 0, bulbCanvas.width, bulbCanvas.height);
+  for (let i = 0; i < NUM_BULBS; i++) {
+    const angle = (i / NUM_BULBS) * Math.PI * 2 - Math.PI / 2;
+    const x = BCX + Math.cos(angle) * BULB_R;
+    const y = BCY + Math.sin(angle) * BULB_R;
+    const phase = (i + bulbOffset) % 3;
+    const on = phase === 0;
+    const color = on ? (i % 6 < 3 ? '#FFD700' : '#E63946') : 'rgba(60,20,20,0.6)';
+    bctx.beginPath();
+    bctx.arc(x, y, on ? 7 : 5, 0, Math.PI * 2);
+    bctx.fillStyle = color;
+    bctx.fill();
+    if (on) {
+      bctx.shadowColor = i % 6 < 3 ? '#FFD700' : '#E63946';
+      bctx.shadowBlur = 18;
+      bctx.fill();
+      bctx.shadowBlur = 0;
+    }
+  }
+}
+
+let lastBulbTime = 0;
+function animateBulbs(ts) {
+  const interval = bulbFast ? 40 : 160;
+  if (ts - lastBulbTime > interval) { bulbOffset++; lastBulbTime = ts; }
+  drawBulbs();
+  requestAnimationFrame(animateBulbs);
+}
+requestAnimationFrame(animateBulbs);
+
+// ── Wheel drawing ─────────────────────────────────────────────────────────────
+function luma(hex) {
+  const h = hex.replace('#','');
+  return 0.299*parseInt(h.slice(0,2),16) + 0.587*parseInt(h.slice(2,4),16) + 0.114*parseInt(h.slice(4,6),16);
+}
+
+function drawWheel(rot) {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  segments.forEach(seg => {
+    const sa = seg.startAngle + rot, ea = seg.endAngle + rot;
+
+    // Segment
+    ctx.beginPath();
+    ctx.moveTo(CX, CY);
+    ctx.arc(CX, CY, R, sa, ea);
+    ctx.closePath();
+    ctx.fillStyle = seg.color;
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(0,0,0,0.3)';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+
+    // Text — only if segment is large enough
+    const arcLen = seg.sweep * R;
+    if (arcLen < 10) return;
+
+    const ratio    = (seg.tickets - MIN_T) / Math.max(MAX_T - MIN_T, 1);
+    const fontSize = Math.round(9 + ratio * 12); // 9–21px
+
+    ctx.save();
+    ctx.translate(CX, CY);
+    ctx.rotate(seg.midAngle + rot);
+
+    ctx.font         = `${fontWeight(seg.tickets)}  ${fontSize}px 'Segoe UI',Arial,sans-serif`;
+    ctx.textAlign    = 'left';
+    ctx.textBaseline = 'middle';
+    ctx.fillStyle    = luma(seg.color) > 155 ? 'rgba(0,0,0,0.85)' : 'rgba(255,255,255,0.95)';
+
+    const textR   = R * 0.46;
+    const maxW    = R * 0.50;
+    let name      = seg.name;
+    while (name.length > 1 && ctx.measureText(name).width > maxW) name = name.slice(0,-1);
+    if (name !== seg.name) name = name.slice(0,-1) + '…';
+
+    ctx.fillText(name, textR, 0);
+    ctx.restore();
+  });
+
+  // Outer ring: triple band
+  [{ r: R+1, w: 3, c:'rgba(0,0,0,0.6)' }, { r: R+5, w: 5, c:'#E63946' }, { r: R+11, w: 4, c:'#FFD700' }]
+    .forEach(b => {
+      ctx.beginPath(); ctx.arc(CX, CY, b.r, 0, Math.PI*2);
+      ctx.strokeStyle = b.c; ctx.lineWidth = b.w; ctx.stroke();
+    });
+}
+function fontWeight(t) { return t >= MAX_T * 0.6 ? '800' : t >= MAX_T * 0.3 ? '700' : '600'; }
+
+// ── Spin animation ────────────────────────────────────────────────────────────
+let rotation = 0, spinning = false;
+let lastTickAngle = 0;
+
+function casinoEase(t) {
+  // Fast blast at start, very gradual creep at end (slot-machine feel)
+  if (t < 0.15) return t * (1/0.15) * 0.35;  // quick ramp up
+  return 0.35 + (1 - Math.pow(1 - ((t - 0.15) / 0.85), 5)) * 0.65;
+}
+
+function startSpin() {
+  if (spinning) return;
+  initAudio();
+  spinning = true;
+  bulbFast = true;
+  const btn = document.getElementById('spinBtn');
+  btn.disabled = true;
+  btn.classList.add('spinning-pulse');
+
+  const totalAngle = (14 + Math.floor(Math.random() * 10)) * Math.PI * 2 + Math.random() * Math.PI * 2;
+  const duration   = 6000 + Math.random() * 2500;
+  const startTime  = performance.now();
+  const startRot   = rotation;
+  lastTickAngle    = rotation;
+
+  function frame(now) {
+    const p = Math.min((now - startTime) / duration, 1);
+    rotation = startRot + totalAngle * casinoEase(p);
+
+    const speed = Math.abs(rotation - lastTickAngle);
+    const threshold = p > 0.8 ? 0.04 : 0.12;
+    if (speed > threshold) { tick(Math.min(speed * 8, 3)); lastTickAngle = rotation; }
+
+    drawWheel(rotation);
+
+    if (p < 1) {
+      requestAnimationFrame(frame);
+    } else {
+      spinning = false;
+      bulbFast = false;
+      btn.disabled = false;
+      btn.classList.remove('spinning-pulse');
+      showWinner();
+    }
+  }
+  requestAnimationFrame(frame);
+}
+
+// ── Winner detection ──────────────────────────────────────────────────────────
+function showWinner() {
+  let p = ((-rotation) % (Math.PI*2) + Math.PI*2) % (Math.PI*2);
+  let cum2 = 0, winner = null;
+  for (const seg of segments) {
+    if (p >= cum2 && p < cum2 + seg.sweep) { winner = seg; break; }
+    cum2 += seg.sweep;
+  }
+  if (!winner) winner = segments[0];
+
+  document.getElementById('winnerName').textContent   = winner.name;
+  document.getElementById('winnerDetail').textContent =
+    winner.tickets + ' raffle ticket' + (winner.tickets !== 1 ? 's' : '') + '  ·  Rank #' + winner.rank;
+
+  // Screen flash
+  const flash = document.getElementById('flashOverlay');
+  flash.style.opacity = '0.9';
+  setTimeout(() => { flash.style.opacity = '0'; }, 80);
+  setTimeout(() => { flash.style.opacity = '0.5'; }, 160);
+  setTimeout(() => { flash.style.opacity = '0'; }, 240);
+
+  setTimeout(() => {
+    document.getElementById('winnerOverlay').classList.add('show');
+    launchConfetti();
+    winSound();
+  }, 200);
+}
+
+// ── Confetti ──────────────────────────────────────────────────────────────────
+function launchConfetti() {
+  const cc = document.getElementById('confettiCanvas');
+  cc.width = window.innerWidth; cc.height = window.innerHeight;
+  const cx = cc.getContext('2d');
+  const colors = ['#FFD700','#E63946','#fff','#FF6B35','#FFC300','#9B5DE5'];
+  const particles = Array.from({length:180}, () => ({
+    x: Math.random() * cc.width, y: -20,
+    vx: (Math.random()-0.5)*4, vy: 3+Math.random()*5,
+    r: 4+Math.random()*6, color: colors[Math.floor(Math.random()*colors.length)],
+    rot: Math.random()*360, rotV: (Math.random()-0.5)*8,
+    shape: Math.random() > 0.5 ? 'rect' : 'circle',
+  }));
+  let frame = 0;
+  function step() {
+    cx.clearRect(0,0,cc.width,cc.height);
+    particles.forEach(p => {
+      p.x+=p.vx; p.y+=p.vy; p.vy+=0.12; p.rot+=p.rotV;
+      cx.save(); cx.translate(p.x,p.y); cx.rotate(p.rot*Math.PI/180);
+      cx.fillStyle = p.color; cx.globalAlpha = Math.max(0, 1 - frame/200);
+      if (p.shape==='rect') { cx.fillRect(-p.r/2,-p.r/4,p.r,p.r/2); }
+      else { cx.beginPath(); cx.arc(0,0,p.r/2,0,Math.PI*2); cx.fill(); }
+      cx.restore();
+    });
+    if (++frame < 220) requestAnimationFrame(step);
+    else cx.clearRect(0,0,cc.width,cc.height);
+  }
+  requestAnimationFrame(step);
+}
+
+// ── Events ────────────────────────────────────────────────────────────────────
+document.getElementById('spinBtn').addEventListener('click', startSpin);
+document.getElementById('hubBtn').addEventListener('click',  startSpin);
+document.getElementById('winnerOverlay').addEventListener('click', () => {
+  document.getElementById('winnerOverlay').classList.remove('show');
+  document.getElementById('confettiCanvas').getContext('2d').clearRect(0,0,9999,9999);
+});
+
+// Initial draw
+drawWheel(0);
+</script>
+</body>
+</html>
